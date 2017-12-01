@@ -263,8 +263,11 @@ public:
   double backTrackWidth = 0;
 
   /// \brief Gas pedal position in percentage. 1.0 = Fully accelerated.
-  double gasPedalPercent = 0;
-
+  double gasPedalPercent = 0; 
+  double fl_torque_percent = 0;
+  double fr_torque_percent = 0;
+  double bl_torque_percent = 0;
+  double br_torque_percent = 0;
 
   /// \brief Threshold delimiting the gas pedal (throttle) low and medium
   /// ranges.
@@ -351,7 +354,7 @@ RCVPlugin::RCVPlugin()
   ros::NodeHandle nh;
   ///@todo subsribe to control input messages
   /// simlar to this.
-  this->dataPtr->controlSub = nh.subscribe("rcv_control_cmd", 10, &RCVPlugin::OnRCVCommand, this);
+  this->dataPtr->controlSub = nh.subscribe("rcv_control_cmd", 10, &RCVPlugin::OnRCVCommand_new, this);
 
   //Set some default values for parameters
   this->dataPtr->directionState = RCVPluginPrivate::FORWARD;
@@ -398,6 +401,25 @@ void RCVPlugin::OnRCVCommand(const rcv_msgs::Control::ConstPtr &msg)
       break;
   }
 
+}
+
+void RCVPlugin::OnRCVCommand_new(const rcv_msgs::control_command::ConstPtr &msg)
+{
+  this->dataPtr->lastSteeringCmdTime = this->dataPtr->world->SimTime();
+  this->dataPtr->lastPedalCmdTime = this->dataPtr->world->SimTime();
+
+  // torque command. TODO: preprocessing of torques
+  double fl_torque = msg->fl_torque;
+  double fr_torque = msg->fr_torque;
+  double bl_torque = msg->rl_torque;
+  double br_torque = msg->rr_torque;
+
+  this->dataPtr->handWheelCmd = 2.89469*this->dataPtr->handWheelHigh*msg->kappa;
+  this->dataPtr->betaCmd = msg->beta;
+  this->dataPtr->fl_torque_percent = fl_torque;
+  this->dataPtr->fr_torque_percent = fr_torque;
+  this->dataPtr->bl_torque_percent = bl_torque;
+  this->dataPtr->br_torque_percent = br_torque;
 }
 
 /////////////////////////////////////////////////
@@ -1016,6 +1038,11 @@ void RCVPlugin::Reset()
   this->dataPtr->kappaCmd = 0;
   this->dataPtr->betaCmd = 0;
   this->dataPtr->gasPedalPercent = 0;
+  this->dataPtr->fl_torque_percent = 0;
+  this->dataPtr->fr_torque_percent = 0;
+  this->dataPtr->bl_torque_percent = 0;
+  this->dataPtr->br_torque_percent = 0;
+
   this->dataPtr->brakePedalPercent = 0;
   this->dataPtr->handbrakePercent = 1.0;
   this->dataPtr->handWheelAngle  = 0;
@@ -1108,13 +1135,13 @@ void RCVPlugin::Update()
   // PID (position) steering joints based on steering position
   // Ackermann steering geometry here
   //  \TODO provide documentation for these equations
-  double beta = 0;
+  double beta = this->dataPtr->betaCmd;
   double l = 1.25;
   double pie = atan(1)*4;
   double gamma_0 = 0.6435;
   double eps_kappa = 0.000001;
-  double tanSteer =
-      tan(this->dataPtr->handWheelCmd * this->dataPtr->steeringRatio);
+  //double tanSteer =
+      //tan(this->dataPtr->handWheelCmd * this->dataPtr->steeringRatio);
   double kappa_des = this->dataPtr->handWheelCmd;
 
   if (kappa_des > 0) {
@@ -1230,6 +1257,11 @@ void RCVPlugin::Update()
   // torque direction.
   // also, make sure gas pedal is at least as large as the creepPercent.
   double gasPercent = std::max(this->dataPtr->gasPedalPercent, creepPercent);
+  double fltorquepercent = this->dataPtr->fl_torque_percent;
+  double frtorquepercent = this->dataPtr->fr_torque_percent;
+  double bltorquepercent = this->dataPtr->bl_torque_percent;
+  double brtorquepercent = this->dataPtr->br_torque_percent;
+
   double gasMultiplier = this->GasTorqueMultiplier();
   double flGasTorque = 0, frGasTorque = 0, blGasTorque = 0, brGasTorque = 0;
   // Apply equal torque at left and right wheels, which is an implicit model
@@ -1237,14 +1269,14 @@ void RCVPlugin::Update()
   if (fabs(dPtr->flWheelAngularVelocity * dPtr->flWheelRadius) < dPtr->maxSpeed &&
       fabs(dPtr->frWheelAngularVelocity * dPtr->frWheelRadius) < dPtr->maxSpeed)
   {
-    flGasTorque = gasPercent * dPtr->frontTorque * gasMultiplier;
-    frGasTorque = gasPercent * dPtr->frontTorque * gasMultiplier;
+    flGasTorque = fltorquepercent * dPtr->frontTorque * gasMultiplier;
+    frGasTorque = frtorquepercent * dPtr->frontTorque * gasMultiplier;
   }
   if (fabs(dPtr->blWheelAngularVelocity * dPtr->blWheelRadius) < dPtr->maxSpeed &&
       fabs(dPtr->brWheelAngularVelocity * dPtr->brWheelRadius) < dPtr->maxSpeed)
   {
-    blGasTorque = gasPercent * dPtr->backTorque * gasMultiplier;
-    brGasTorque = gasPercent * dPtr->backTorque * gasMultiplier;
+    blGasTorque = bltorquepercent * dPtr->backTorque * gasMultiplier;
+    brGasTorque = brtorquepercent * dPtr->backTorque * gasMultiplier;
   }
 
   // auto release handbrake as soon as the gas pedal is depressed
@@ -1261,6 +1293,7 @@ void RCVPlugin::Update()
   }
 
   brakePercent = ignition::math::clamp(brakePercent, 0.0, 1.0);
+  brakePercent = 0;
   dPtr->flWheelJoint->SetParam("friction", 0,
       dPtr->flJointFriction + brakePercent * dPtr->frontBrakeTorque);
   dPtr->frWheelJoint->SetParam("friction", 0,

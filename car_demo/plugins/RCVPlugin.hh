@@ -73,6 +73,8 @@ private:
   
   void OnRCVCommand(const rcv_msgs::Control::ConstPtr &msg);
 
+  void OnRCVCommand_new(const rcv_msgs::control_command::ConstPtr &msg);
+
   /// \brief Command to reset the world
   /// \param[in] _msg Int32 message data. Not used
   void OnReset(const ignition::msgs::Any &_msg);
