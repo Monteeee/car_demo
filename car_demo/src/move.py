@@ -18,16 +18,17 @@
 # This is a rewrite of the script 'joystick_translator'
 
 
+import os
 import rospy
 from rcv_msgs.msg import Control
 from rcv_msgs.msg import control_command
 from rosgraph_msgs.msg import Log
 from nav_msgs.msg import Odometry
 from PID import PID 
-#from scipy.spatial.distance import cdist
 import math
 import numpy as np
-
+import liveplot as lp
+from matplotlib import pyplot as plt
 
 
 STEERING_AXIS = 0
@@ -36,23 +37,24 @@ thre = 0.2
 
 
 class Translator:
-	def __init__(self, operations=None, planPath=None):
-		#self.pub = rospy.Publisher('rcv_control_cmd', Control, queue_size=1)
-		self.pub = rospy.Publisher('rcv_control_cmd', control_command, queue_size=1)
-		self.last_published_time = rospy.get_rostime()
+	def __init__(self, operations=None, planPath=None, scale=None):
 		self.operations = operations
 		self.planPath = planPath
-		self.timer = rospy.Timer(rospy.Duration(1.0/20.0), self.timer_callback)
 		self.linear_v = 0
 		self.index = 0
 		self.x = 3
 		self.y = -12
 		self.yaw = 0
 		self.dist = 0
-		self.ref_v = 3
+		self.pre_dist = 0
+		self.ref_v = 1.2
+		self.scale = scale
+		#self.pub = rospy.Publisher('rcv_control_cmd', Control, queue_size=1)
+		self.pub = rospy.Publisher('rcv_control_cmd', control_command, queue_size=1)
+		self.last_published_time = rospy.get_rostime()
+		self.timer = rospy.Timer(rospy.Duration(1.0/20.0), self.timer_callback)
 	
-
-	def callback(self, data):
+	def velcallback(self, data):
 		self.linear_v = data.msg
 	
 	def statecallback(self, data):
@@ -62,12 +64,15 @@ class Translator:
 				
 	def timer_callback(self, event):
 		if self.last_published_time < rospy.get_rostime() + rospy.Duration(1.0/20):
-			self.pathControl()
-			#self.move_new()
+			if self.operations is None:
+				self.pathControl()
+			else:
+				self.move_new()
 
+	# interface takes throttle, brake, steer as input
 	def move(self):
 		command = Control()
-		self.sub = rospy.Subscriber('rosout_agg', Log, self.callback)
+		self.sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
 		rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
 		
 		rcv_v = float(self.linear_v)
@@ -98,9 +103,10 @@ class Translator:
 		print("linear velocity: {}, throttle: {}, brake: {}".format(rcv_v, command.throttle, command.brake))
 		self.pub.publish(command)
 
+	# interface takes torques, kappa, beta as input
 	def move_new(self):
 		command = control_command()
-		self.sub = rospy.Subscriber('rosout_agg', Log, self.callback)
+		self.sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
 		rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
 
 		rcv_v = float(self.linear_v)
@@ -110,7 +116,7 @@ class Translator:
 			if abs(rcv_v - ref_v)/ref_v < thre:
 				command.kappa = self.operations[3]
 			else:
-				ref_v = self.operations[2]
+				ref_v = self.operations[1]
 				pid = PID(P=1.2, I=10, D=0.1)
 				pid.SetPoint = float(ref_v)
 				pid.setSampleTime = rospy.Duration(1.0/20)
@@ -132,12 +138,12 @@ class Translator:
 		self.pub.publish(command)
 
 	def pathControl(self):
-		#kappa = 0
 		command = control_command()
-		self.sub = rospy.Subscriber('rosout_agg', Log, self.callback)
+		self.sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
 		rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
 		rcv_v = float(self.linear_v)
 
+		# pid control for velocity
 		pid = PID(P=2, I=1.2, D=0)
 		pid.SetPoint = float(self.ref_v)
 		pid.setSampleTime = rospy.Duration(1.0/20)
@@ -153,17 +159,17 @@ class Translator:
 		command.rl_torque = output
 		command.rr_torque = output
 
-		lookahead = 2
+		# pure pursuit for path follow
+		lookahead = 1
 		desire = 0
 		Path = np.array(self.planPath)
 
-		delta_x = Path[:,0] - self.x
-		delta_y = Path[:,1] - self.y
+		delta_x = Path[:, 0] - self.x
+		delta_y = Path[:, 1] - self.y
+		dist_list = delta_x*delta_x + delta_y*delta_y
 
-		dist = delta_x*delta_x + delta_y*delta_y
-
-		index = np.argmin(dist)
-		if index + lookahead < len(Path) -1:
+		index = np.argmin(dist_list)
+		if index + lookahead < len(Path) - 1:
 			desire = index + lookahead
 		else:
 			desire = len(Path) - 1
@@ -171,46 +177,30 @@ class Translator:
 		newPoint = planPath[desire]
 		newPoint_x = newPoint[0] + 3
 		newPoint_y = newPoint[1] - 12
-		new_yaw = 5*newPoint[2] - self.yaw
+		new_yaw = newPoint[2]/self.scale - self.yaw
 		error_x = newPoint_x - self.x 
 		error_y = newPoint_y - self.y
-		distance = math.hypot(error_x, error_y)
+		dist = math.hypot(error_x, error_y)
 
-		# if distance > 2:
-		# 	if abs(delta_y) < 0.5:
-		# 		kappa = 0
+		command.kappa = 2*math.sin(new_yaw)/dist
+		command.beta = 0		#TODO: how to set beta in pure pursuit
 
-		command.kappa = 2*math.sin(new_yaw)/distance
-		command.beta = 0
+		# stop the car if it approaches the end point
+		if desire == len(Path) - 1 and self.pre_dist < dist:
+			self.ref_v = 0
+		else:
+			self.ref_v = 1.2
+		self.pre_dist = dist
 
 		self.pub.publish(command)
-		print("y: {0}, new_y: {1}, dist: {2}, desire_point: {3}, current_point {4}, kappa: {5}".format(self.y, newPoint_y, distance, desire, index, command.kappa))
-		#print("yaw: {2}, dist: {0}, kappa: {1}".format(distance, command.kappa, self.yaw))
-		
-
-		# desire_x = desire[0]
-		# desire_y = desire[1]
-		# torque = 1
-		# beta = 0
-		# kappa = 1
-		# m_a = 1
-		# fl_torque = 1
-		# fr_torque = 1
-		# rl_torque = 1
-		# rr_torque = 1
-
-		# command.fl_torque = self.operations[1]
-		# command.fr_torque = self.operations[2]
-		# command.rl_torque = self.operations[3]
-		# command.rr_torque = self.operations[4]
-		# command.kappa = self.operations[5]
-		# command.beta = self.operations[6]
-		# dist = math.hypot((desire_x-self.x),(desire_y-self.y))
-		# self.pub.publish(command)
+		print("x: {5}, y: {6}, dist: {0}, desire_point: {1}, current_point {2}, kappa: {3}, velocity: {4}"
+			.format(dist, desire, index, command.kappa, rcv_v, self.x, self.y))
 
 
 if __name__ == '__main__':
-	path = "/home/el2425/catkin_ws/src/simulation_nodes/fake_planning/path_from_file_planner/data/path.dat"
+	path_name = "path.dat"
+	path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
+	path_path = os.path.join(path_dir, path_name)
 	rospy.init_node('rcv_controller', anonymous=True)
 
 	print("Let's control your RCV")
@@ -219,17 +209,17 @@ if __name__ == '__main__':
 	if m_a:
 		p_v = input("track path (1) or velocity (0): ")
 		if p_v:
-			planPath = []	
-			with open(path) as f:
+			planPath = []
+			scale = 0.2
+			with open(path_path) as f:
 				for line in f:
-					cur_data = [0.2*float(x) for x in line.split(',')]
+					cur_data = [scale*float(x) for x in line.split(',')]
 					planPath.append(cur_data)
-			#print(planPath)
-			t = Translator(planPath=planPath)  
+			t = Translator(planPath=planPath, scale=scale)  
 		else:
 			vel = input("Input reference velocity: ")
 			kappa = input("Input reference kappa: ")
-			operations = [m_a, p_v, vel, kappa]
+			operations = [m_a, vel, kappa]
 			t = Translator(operations=operations)
 	else:
 		fl_torque = input("Input the front-left wheel torque: ")

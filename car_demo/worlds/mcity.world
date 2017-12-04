@@ -4,7 +4,7 @@
     <gui fullscreen='0'>
       <plugin name='keyboard' filename='libKeyboardGUIPlugin.so'/>
       <camera name="user_camera">
-        <pose>116.69 -48.36 358.25 0.00 1.57 1.59</pose>
+        <pose>50.21 -10.81 92.30 0.00 1.57 1.59</pose>
       </camera>
     </gui>
 
