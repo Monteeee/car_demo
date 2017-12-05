@@ -1,14 +1,14 @@
-# Demo of Prius in ROS/GAZEBO
+# Demo of RCV in ROS/GAZEBO
 
-This is a simulation of a Prius in [gazebo 8](http://gazebosim.org) with sensor data being published using [ROS kinetic](http://wiki.ros.org/kinetic/Installation)
-The car's throttle, brake, steering, and gear shifting are controlled by publishing a ROS message.
-A ROS node allows driving with a gamepad or joystick.
+This is a simulation of a [KTH Research Concept Vehicle (RCV)](https://www.itrl.kth.se/research/itrl-labs/rcv-1.476469) in [gazebo 8](http://gazebosim.org) with sensor data being published using [ROS kinetic](http://wiki.ros.org/kinetic/Installation)
+The RCV's wheel torques, curvature and crabbing angle are controlled by publishing a ROS message.
+A ROS node allows controlling the RCV to maintain at a predefined speed or follow a path.
 
 # Video + Pictures
 
-A video and screenshots of the demo can be seen in this blog post: https://www.osrfoundation.org/simulated-car-demo/
+Video is not available yet. Will be released in two weeks.
 
-![Prius Image](https://www.osrfoundation.org/wordpress2/wp-content/uploads/2017/06/prius_roundabout_exit.png)
+![RCV Image](https://github.com/txzhao/car_demo/tree/master/pic/rcv.png)
 
 # Requirements
 
