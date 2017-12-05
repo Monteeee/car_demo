@@ -27,7 +27,6 @@ from nav_msgs.msg import Odometry
 from PID import PID 
 import math
 import numpy as np
-import liveplot as lp
 from matplotlib import pyplot as plt
 
 

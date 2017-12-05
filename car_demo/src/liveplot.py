@@ -5,18 +5,19 @@ import numpy as np
 from matplotlib import pyplot as plt
 from nav_msgs.msg import Odometry
 import rospy
+import math
 
 def plot_xy(msg):
 	global counter
 	path_name = "path.dat"
-	if counter == 0:
-		x0 = 3.0
-		y0 = -12.0
-		planPath = []
-		scale = 0.2
-		path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
-		path_path = os.path.join(path_dir, path_name)
+	path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
+	path_path = os.path.join(path_dir, path_name)
+	x0 = 3.0
+	y0 = -12.0
+	scale = 0.2
 
+	if counter == 0:
+		planPath = []
 		with open(path_path) as f:
 			for line in f:
 				cur_data = [scale*float(x) for x in line.split(',')]
@@ -28,9 +29,15 @@ def plot_xy(msg):
 		plt.pause(1e-12)
 
 	elif counter%100 == 0:
-		#stamp = msg.header.stamp
-		#time = stamp.secs + stamp.nsecs*1e-9
-		plt.plot(msg.pose.pose.position.x, msg.pose.pose.position.y, 'ro')
+		cur_x = msg.pose.pose.position.x
+		cur_y = msg.pose.pose.position.y
+		cur_yaw = msg.pose.pose.orientation.z
+		dx = math.sqrt(1.0/(1.0 + (np.tan(cur_yaw))**2))
+		dy = dx*np.tan(cur_yaw)
+
+		plt.plot(cur_x, cur_y, 'ro')
+		ax = plt.axes()
+		ax.arrow(cur_x, cur_y, dx, dy)
 		plt.draw()
 		plt.pause(1e-12)
 	
