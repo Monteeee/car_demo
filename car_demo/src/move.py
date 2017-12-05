@@ -28,6 +28,7 @@ from PID import PID
 import math
 import numpy as np
 from matplotlib import pyplot as plt
+import tf
 
 
 STEERING_AXIS = 0
@@ -36,20 +37,23 @@ thre = 0.2
 
 
 class Translator:
-	def __init__(self, operations=None, planPath=None, scale=None):
+	def __init__(self, operations=None, planPath=None):
 		self.operations = operations
 		self.planPath = planPath
 		self.linear_v = 0
 		self.index = 0
-		self.x = 3
-		self.y = -12
+		self.x0 = 3.0
+		self.y0 = -12.0
+		self.x = self.x0
+		self.y = self.y0
 		self.yaw = 0
 		self.dist = 0
 		self.pre_dist = 0
-		self.ref_v = 1.2
-		self.scale = scale
+		self.ref_v = 3
 		#self.pub = rospy.Publisher('rcv_control_cmd', Control, queue_size=1)
 		self.pub = rospy.Publisher('rcv_control_cmd', control_command, queue_size=1)
+		self.vel_sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
+		self.state_sub = rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
 		self.last_published_time = rospy.get_rostime()
 		self.timer = rospy.Timer(rospy.Duration(1.0/20.0), self.timer_callback)
 	
@@ -59,7 +63,16 @@ class Translator:
 	def statecallback(self, data):
 		self.x = data.pose.pose.position.x
 		self.y = data.pose.pose.position.y
-		self.yaw = data.pose.pose.orientation.z
+		quaternion = (
+			data.pose.pose.orientation.x,
+			data.pose.pose.orientation.y,
+			data.pose.pose.orientation.z,
+			data.pose.pose.orientation.w)
+
+		euler = tf.transformations.euler_from_quaternion(quaternion)
+		self.yaw = euler[2]
+		#print('self.yaw:', self.yaw)
+		#print('orientation yaw:',data.pose.pose.orientation.z)
 				
 	def timer_callback(self, event):
 		if self.last_published_time < rospy.get_rostime() + rospy.Duration(1.0/20):
@@ -71,8 +84,8 @@ class Translator:
 	# interface takes throttle, brake, steer as input
 	def move(self):
 		command = Control()
-		self.sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
-		rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
+		#self.sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
+		#rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
 		
 		rcv_v = float(self.linear_v)
 		ref_v = float(self.operations[1])	
@@ -105,8 +118,8 @@ class Translator:
 	# interface takes torques, kappa, beta as input
 	def move_new(self):
 		command = control_command()
-		self.sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
-		rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
+		#self.sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
+		#rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
 
 		rcv_v = float(self.linear_v)
 		ref_v = float(self.operations[2])
@@ -138,8 +151,6 @@ class Translator:
 
 	def pathControl(self):
 		command = control_command()
-		self.sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
-		rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
 		rcv_v = float(self.linear_v)
 
 		# pid control for velocity
@@ -159,45 +170,90 @@ class Translator:
 		command.rr_torque = output
 
 		# pure pursuit for path follow
-		lookahead = 1
+		lookahead = 20
 		desire = 0
-		Path = np.array(self.planPath)
+		Path = np.transpose(np.array(self.planPath))
 
-		delta_x = Path[:, 0] - self.x
-		delta_y = Path[:, 1] - self.y
-		dist_list = delta_x*delta_x + delta_y*delta_y
+		print(Path.shape)
+
+		delta_x = Path[:, 0] - self.x + self.x0
+		delta_y = Path[:, 1] - self.y + self.y0
+		dist_list = (delta_x*delta_x + delta_y*delta_y)**0.5
 
 		index = np.argmin(dist_list)
-		if index + lookahead < len(Path) - 1:
+		#lookahead = int(dist_list[index]*7)
+		if index + lookahead < Path.shape[0] - 1:
 			desire = index + lookahead
 		else:
-			desire = len(Path) - 1
+			desire = Path.shape[0] - 1
 
-		newPoint = planPath[desire]
-		newPoint_x = newPoint[0] + 3
-		newPoint_y = newPoint[1] - 12
-		new_yaw = newPoint[2]/self.scale - self.yaw
+		newPoint = Path[desire]
+		newPoint_x = newPoint[0] + self.x0
+		newPoint_y = newPoint[1] + self.y0
+		#new_yaw = newPoint[2] - self.yaw
 		error_x = newPoint_x - self.x 
 		error_y = newPoint_y - self.y
 		dist = math.hypot(error_x, error_y)
+		y_translate = -np.sin(self.yaw)*error_x + np.cos(self.yaw)*error_y
+		command.kappa = 2*(y_translate/dist**2)
 
-		command.kappa = 2*math.sin(new_yaw)/dist
+
+		#command.kappa = 2*math.sin(new_yaw)/dist
 		command.beta = 0		#TODO: how to set beta in pure pursuit
 
 		# stop the car if it approaches the end point
-		if desire == len(Path) - 1 and self.pre_dist < dist:
-			self.ref_v = 0
-		else:
-			self.ref_v = 1.2
-		self.pre_dist = dist
+		# if desire == len(Path) - 1 and self.pre_dist < dist:
+		# 	self.ref_v = 0
+		# else:
+		# 	self.ref_v = 1.2
+		# self.pre_dist = dist
 
 		self.pub.publish(command)
-		print("x: {5}, y: {6}, dist: {0}, desire_point: {1}, current_point {2}, kappa: {3}, velocity: {4}"
-			.format(dist, desire, index, command.kappa, rcv_v, self.x, self.y))
+		print("x: {5}, y: {6}, dist1: {7} dist: {0}, desire_point: {1}, current_point {2}, kappa: {3}, velocity: {4}"
+			.format(dist, desire, index, command.kappa, rcv_v, self.x, self.y, dist_list[index]))
+
+
+def interpolate(shape):
+	route_x = []
+	route_y = []
+	points_per_meter = 5
+
+	for index in range(1, len(shape)):
+		dist_x = shape[index][0] - shape[index - 1][0]
+		dist_y = shape[index][1] - shape[index - 1][1]
+		print(dist_y)
+		len_temp = (dist_x**2 + dist_y**2)**0.5
+
+
+		num_points = int(len_temp * float(points_per_meter))
+		print('numpoints:',num_points)
+		for num in range(0, num_points):
+			temp_x = shape[index - 1][0] + num * dist_x / num_points
+			temp_y = shape[index - 1][1] + num * dist_y / num_points
+
+			route_x.append(temp_x)
+			route_y.append(temp_y)
+			print('temp:',temp_y)
+
+	if route_x == []:
+		route_x.append(shape[0][0])
+		route_y.append(shape[0][1])
+
+	direction_list = []
+	for index in range(1, len(route_x)):
+		x = route_x[index] - route_x[index-1]
+		y = route_y[index] - route_y[index-1]
+
+		direction = np.arctan2(y, x)
+		direction_list.append(direction)
+
+	direction_list.append(0)
+
+	return [route_x, route_y, direction_list]
 
 
 if __name__ == '__main__':
-	path_name = "path.dat"
+	path_name = "path3.dat"
 	path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
 	path_path = os.path.join(path_dir, path_name)
 	rospy.init_node('rcv_controller', anonymous=True)
@@ -212,9 +268,10 @@ if __name__ == '__main__':
 			scale = 0.2
 			with open(path_path) as f:
 				for line in f:
-					cur_data = [scale*float(x) for x in line.split(',')]
+					cur_data = [float(x) for x in line.split(',')]
+					cur_data[0] *= scale
 					planPath.append(cur_data)
-			t = Translator(planPath=planPath, scale=scale)  
+			t = Translator(planPath=interpolate(planPath))  
 		else:
 			vel = input("Input reference velocity: ")
 			kappa = input("Input reference kappa: ")
