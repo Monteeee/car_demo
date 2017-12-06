@@ -6,7 +6,7 @@ This is a simulation of a [KTH Research Concept Vehicle (RCV)](https://www.itrl.
 
  Video is not available yet. Will be released in two weeks.
  
- [!RCV Image](https://github.com/txzhao/car_demo/blob/master/pic/rcv.png)
+ ![RCV Image](https://github.com/txzhao/car_demo/blob/master/pic/rcv.png)
 
 # Requirements
 
