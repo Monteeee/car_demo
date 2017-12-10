@@ -1318,7 +1318,7 @@ void RCVPlugin::Update()
   //ROS_INFO_STREAM_NAMED("frSteeringCmd", "frSteeringCmd: " << this->dataPtr->frWheelSteeringCmd);
   //ROS_INFO_STREAM_NAMED("blSteeringCmd", "blSteeringCmd: " << this->dataPtr->blWheelSteeringCmd);
   //ROS_INFO_STREAM_NAMED("brSteeringCmd", "brSteeringCmd: " << this->dataPtr->brWheelSteeringCmd);
-  ROS_INFO_STREAM_NAMED("linearVel", "" << linearVel);
+  //ROS_INFO_STREAM_NAMED("linearVel", "" << linearVel);
 
   // reset if last command is more than x sec ago
   if ((curTime - this->dataPtr->lastPedalCmdTime).Double() > 0.3)

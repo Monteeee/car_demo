@@ -23,11 +23,10 @@ def plot_xy(msg):
 				cur_data = [float(x) for x in line.split(',')]
 				cur_data[0] *= scale
 				planPath.append(cur_data)
-		Path = (np.array(interpolate(planPath)))
-		print(Path[1, :])
+		Path = np.array(interpolate(planPath))
 
-		#plt.plot(x0 + Path[:, 0], y0 + Path[:, 1], linewidth=2.0)
-		plt.plot(x0 + Path[0, :], y0 + Path[1, :], 'ko')
+		plt.plot(x0 + Path[0, :], y0 + Path[1, :], linewidth=2.0)
+		#plt.plot(x0 + Path[0, :], y0 + Path[1, :], 'ko')
 		plt.draw()
 		plt.pause(1e-12)
 
@@ -40,7 +39,7 @@ def plot_xy(msg):
 
 		plt.plot(cur_x, cur_y, 'ro')
 		ax = plt.axes()
-		ax.arrow(cur_x, cur_y, dx, dy)
+		ax.arrow(x=cur_x, y=cur_y, dx=dx, dy=dy, width=0.04, head_length=1.5, color='k')
 		plt.draw()
 		plt.pause(1e-12)
 	
@@ -56,8 +55,6 @@ def interpolate(shape):
 
 	for index in range(1, len(shape)):
 		dist_x = shape[index][0] - shape[index - 1][0]
-		print(shape[index][1])
-		print(shape[index - 1][1])
 		dist_y = shape[index][1] - shape[index - 1][1]
 		len_temp = (dist_x**2 + dist_y**2)**0.5
 

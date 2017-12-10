@@ -49,14 +49,15 @@ class Translator:
 		self.yaw = 0
 		self.dist = 0
 		self.pre_dist = 0
-		self.ref_v = 3
+		self.ref_v = 3.0
 		#self.pub = rospy.Publisher('rcv_control_cmd', Control, queue_size=1)
 		self.pub = rospy.Publisher('rcv_control_cmd', control_command, queue_size=1)
-		self.vel_sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
+		#self.vel_sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
 		self.state_sub = rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
 		self.last_published_time = rospy.get_rostime()
 		self.timer = rospy.Timer(rospy.Duration(1.0/20.0), self.timer_callback)
 	
+	# this callback is not used
 	def velcallback(self, data):
 		self.linear_v = data.msg
 	
@@ -68,11 +69,9 @@ class Translator:
 			data.pose.pose.orientation.y,
 			data.pose.pose.orientation.z,
 			data.pose.pose.orientation.w)
-
 		euler = tf.transformations.euler_from_quaternion(quaternion)
 		self.yaw = euler[2]
-		#print('self.yaw:', self.yaw)
-		#print('orientation yaw:',data.pose.pose.orientation.z)
+		self.linear_v = math.sqrt(data.twist.twist.linear.x**2 + data.twist.twist.linear.y**2)
 				
 	def timer_callback(self, event):
 		if self.last_published_time < rospy.get_rostime() + rospy.Duration(1.0/20):
@@ -174,14 +173,11 @@ class Translator:
 		desire = 0
 		Path = np.transpose(np.array(self.planPath))
 
-		print(Path.shape)
-
 		delta_x = Path[:, 0] - self.x + self.x0
 		delta_y = Path[:, 1] - self.y + self.y0
 		dist_list = (delta_x*delta_x + delta_y*delta_y)**0.5
 
 		index = np.argmin(dist_list)
-		#lookahead = int(dist_list[index]*7)
 		if index + lookahead < Path.shape[0] - 1:
 			desire = index + lookahead
 		else:
@@ -196,9 +192,6 @@ class Translator:
 		dist = math.hypot(error_x, error_y)
 		y_translate = -np.sin(self.yaw)*error_x + np.cos(self.yaw)*error_y
 		command.kappa = 2*(y_translate/dist**2)
-
-
-		#command.kappa = 2*math.sin(new_yaw)/dist
 		command.beta = 0		#TODO: how to set beta in pure pursuit
 
 		# stop the car if it approaches the end point
@@ -224,16 +217,13 @@ def interpolate(shape):
 		print(dist_y)
 		len_temp = (dist_x**2 + dist_y**2)**0.5
 
-
 		num_points = int(len_temp * float(points_per_meter))
-		print('numpoints:',num_points)
 		for num in range(0, num_points):
 			temp_x = shape[index - 1][0] + num * dist_x / num_points
 			temp_y = shape[index - 1][1] + num * dist_y / num_points
 
 			route_x.append(temp_x)
 			route_y.append(temp_y)
-			print('temp:',temp_y)
 
 	if route_x == []:
 		route_x.append(shape[0][0])
