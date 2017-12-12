@@ -25,9 +25,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import tf
 
-from rcv_msgs.msg import Control
 from rcv_msgs.msg import control_command
-from rosgraph_msgs.msg import Log
 from nav_msgs.msg import Odometry
 from PID import PID 
 from MPC import MPC
@@ -56,18 +54,13 @@ class RCVControl:
 		self.dist = 0
 		self.pre_dist = 0
 		self.ref_v = ref_v
-		#self.pub = rospy.Publisher('rcv_control_cmd', Control, queue_size=1)
+		
 		self.pub = rospy.Publisher('rcv_control_cmd', control_command, queue_size=1)
-		#self.vel_sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
-		self.state_sub = rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
+		self.state_sub = rospy.Subscriber('/base_pose_ground_truth', Odometry, self.state_callback)
 		self.last_published_time = rospy.get_rostime()
 		self.timer = rospy.Timer(rospy.Duration(1.0/20.0), self.timer_callback)
 	
-	# this callback is not used
-	def velcallback(self, data):
-		self.linear_v = data.msg
-	
-	def statecallback(self, data):
+	def state_callback(self, data):
 		self.x = data.pose.pose.position.x
 		self.y = data.pose.pose.position.y
 		quaternion = (
@@ -87,68 +80,18 @@ class RCVControl:
 				else:
 					self.pathControlPP()
 			else:
-				self.move_new()
-
-	# interface takes throttle, brake, steer as input
-	# not used
-	def move(self):
-		command = Control()
-		
-		rcv_v = float(self.linear_v)
-		ref_v = float(self.operations[1])	
-		
-		if self.operations[0]:
-			if abs(rcv_v - ref_v)/ref_v < thre:
-				command.steer = self.operations[2]
-			else:
-				ref_v = self.operations[1]
-				pid = PID(P=3, I=0.5, D=0)
-				pid.SetPoint = float(ref_v)
-				pid.setSampleTime = rospy.Duration(1.0/20)
-				pid.update(float(rcv_v))
-
-				if pid.output < 0:
-					command.throttle = 0
-					command.brake = abs(pid.output)
-				else:
-					command.throttle = abs(pid.output)
-					command.brake = 0
-		else:
-			command.throttle = self.operations[1]
-			command.brake = self.operations[2]
-			command.shift_gears = self.operations[3]
-			command.steer = self.operations[4]
-
-		print("linear velocity: {}, throttle: {}, brake: {}".format(rcv_v, command.throttle, command.brake))
-		self.pub.publish(command)
+				self.manControl()
 
 	# interface takes torques, kappa, beta as input
-	def move_new(self):
+	def manControl(self):
 		command = control_command()
-
-		rcv_v = float(self.linear_v)
 		
-		if self.operations[0]:
-			if abs(rcv_v - self.ref_v)/self.ref_v < thre:
-				command.kappa = self.operations[1]
-			else:
-				pid = PID(P=1.2, I=1, D=0.1)
-				pid.SetPoint = float(self.ref_v)
-				pid.setSampleTime = rospy.Duration(1.0/20)
-				pid.update(float(rcv_v))
-
-				#print("pid output: "+ str(pid.output))
-				command.fl_torque = pid.output
-				command.fr_torque = pid.output
-				command.rl_torque = pid.output
-				command.rr_torque = pid.output
-		else:
-			command.fl_torque = self.operations[1]
-			command.fr_torque = self.operations[2]
-			command.rl_torque = self.operations[3]
-			command.rr_torque = self.operations[4]
-			command.kappa = self.operations[5]
-			command.beta = self.operations[6]
+		command.fl_torque = self.operations[1]
+		command.fr_torque = self.operations[2]
+		command.rl_torque = self.operations[3]
+		command.rr_torque = self.operations[4]
+		command.kappa = self.operations[5]
+		command.beta = self.operations[6]
 
 		self.pub.publish(command)
 
@@ -283,28 +226,21 @@ if __name__ == '__main__':
 	m_a = input("Choose automatic (1) or torque (0) control: ")
 		
 	if m_a:
-		p_v = input("track path (1) or velocity (0): ")
-		if p_v:
-			ctrl_spec = input("MPC (1) or Pure Pursuit (0): ")
-			planPath = []
-			scale_x = 0.3
-			scale_y = 0.5
-			with open(path_path) as f:
-				for line in f:
-					cur_data = [float(x) for x in line.split(',')]
-					cur_data[0] *= scale_x
-					cur_data[1] *= scale_y
-					planPath.append(cur_data)
-			if ctrl_spec:
-				t = RCVControl(ctrl_spec=ctrl_spec, planPath=planPath)
-			else:
-				ref_v = input("Input reference velocity: ")
-				t = RCVControl(ctrl_spec=ctrl_spec, planPath=planPath, ref_v=ref_v)  
+		ctrl_spec = input("MPC (1) or Pure Pursuit (0): ")
+		planPath = []
+		scale_x = 0.3
+		scale_y = 0.5
+		with open(path_path) as f:
+			for line in f:
+				cur_data = [float(x) for x in line.split(',')]
+				cur_data[0] *= scale_x
+				cur_data[1] *= scale_y
+				planPath.append(cur_data)
+		if ctrl_spec:
+			t = RCVControl(ctrl_spec=ctrl_spec, planPath=planPath)
 		else:
-			vel = input("Input reference velocity: ")
-			kappa = input("Input reference kappa: ")
-			operations = [m_a, kappa]
-			t = RCVControl(operations=operations, ref_v=vel)
+			ref_v = input("Input reference velocity: ")
+			t = RCVControl(ctrl_spec=ctrl_spec, planPath=planPath, ref_v=ref_v)  
 	else:
 		fl_torque = input("Input the front-left wheel torque: ")
 		fr_torque = input("Input the front-right wheel torque: ")
