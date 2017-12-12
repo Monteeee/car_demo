@@ -20,26 +20,31 @@
 
 import os
 import rospy
-from rcv_msgs.msg import Control
-from rcv_msgs.msg import control_command
-from rosgraph_msgs.msg import Log
-from nav_msgs.msg import Odometry
-from PID import PID 
 import math
 import numpy as np
 from matplotlib import pyplot as plt
 import tf
 
+from rcv_msgs.msg import Control
+from rcv_msgs.msg import control_command
+from rosgraph_msgs.msg import Log
+from nav_msgs.msg import Odometry
+from PID import PID 
+from MPC import MPC
+from PurePursuit import PurePursuit
 
-STEERING_AXIS = 0
-THROTTLE_AXIS = 4
+
 thre = 0.2
 
 
-class Translator:
+class RCVControl:
+
+	"""Main file for controlling RCV
+	"""
+
 	def __init__(self, operations=None, planPath=None):
 		self.operations = operations
-		self.planPath = planPath
+		self.planPath = self.interpolate(shape=planPath)
 		self.linear_v = 0
 		self.index = 0
 		self.x0 = 3.0
@@ -49,7 +54,7 @@ class Translator:
 		self.yaw = 0
 		self.dist = 0
 		self.pre_dist = 0
-		self.ref_v = 3.0
+		self.ref_v = 0.0
 		#self.pub = rospy.Publisher('rcv_control_cmd', Control, queue_size=1)
 		self.pub = rospy.Publisher('rcv_control_cmd', control_command, queue_size=1)
 		#self.vel_sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
@@ -76,7 +81,7 @@ class Translator:
 	def timer_callback(self, event):
 		if self.last_published_time < rospy.get_rostime() + rospy.Duration(1.0/20):
 			if self.operations is None:
-				self.pathControl()
+				self.pathControlMPC()
 			else:
 				self.move_new()
 
@@ -168,30 +173,8 @@ class Translator:
 		command.rl_torque = output
 		command.rr_torque = output
 
-		# pure pursuit for path follow
-		lookahead = 20
-		desire = 0
-		Path = np.transpose(np.array(self.planPath))
-
-		delta_x = Path[:, 0] - self.x + self.x0
-		delta_y = Path[:, 1] - self.y + self.y0
-		dist_list = (delta_x*delta_x + delta_y*delta_y)**0.5
-
-		index = np.argmin(dist_list)
-		if index + lookahead < Path.shape[0] - 1:
-			desire = index + lookahead
-		else:
-			desire = Path.shape[0] - 1
-
-		newPoint = Path[desire]
-		newPoint_x = newPoint[0] + self.x0
-		newPoint_y = newPoint[1] + self.y0
-		#new_yaw = newPoint[2] - self.yaw
-		error_x = newPoint_x - self.x 
-		error_y = newPoint_y - self.y
-		dist = math.hypot(error_x, error_y)
-		y_translate = -np.sin(self.yaw)*error_x + np.cos(self.yaw)*error_y
-		command.kappa = 2*(y_translate/dist**2)
+		purePursuit = PurePursuit(lookahead=20, planPath=self.planPath)
+		command.kappa = purePursuit.update([self.x - self.x0, self.y - self.y0, self.yaw])
 		command.beta = 0		#TODO: how to set beta in pure pursuit
 
 		# stop the car if it approaches the end point
@@ -202,48 +185,101 @@ class Translator:
 		# self.pre_dist = dist
 
 		self.pub.publish(command)
-		print("x: {5}, y: {6}, dist1: {7} dist: {0}, desire_point: {1}, current_point {2}, kappa: {3}, velocity: {4}"
-			.format(dist, desire, index, command.kappa, rcv_v, self.x, self.y, dist_list[index]))
+		#print("x: {5}, y: {6}, dist1: {7} dist: {0}, desire_point: {1}, current_point {2}, kappa: {3}, velocity: {4}"
+		#	.format(dist, desire, index, command.kappa, rcv_v, self.x, self.y, dist_list[index]))
 
+	def pathControlMPC(self):
+		command = control_command()
+		rcv_v = float(self.linear_v)
 
-def interpolate(shape):
-	route_x = []
-	route_y = []
-	points_per_meter = 5
+		# pid control for velocity
+		pid = PID(P=2, I=1.2, D=0)
+		pid.SetPoint = float(self.ref_v)
+		pid.setSampleTime = rospy.Duration(1.0/20)
+		pid.update(float(rcv_v))
 
-	for index in range(1, len(shape)):
-		dist_x = shape[index][0] - shape[index - 1][0]
-		dist_y = shape[index][1] - shape[index - 1][1]
-		print(dist_y)
-		len_temp = (dist_x**2 + dist_y**2)**0.5
+		torque_thresh = -0.01
+		output = pid.output
+		if pid.output < torque_thresh:
+			output = torque_thresh
 
-		num_points = int(len_temp * float(points_per_meter))
-		for num in range(0, num_points):
-			temp_x = shape[index - 1][0] + num * dist_x / num_points
-			temp_y = shape[index - 1][1] + num * dist_y / num_points
+		command.fl_torque = output
+		command.fr_torque = output
+		command.rl_torque = output
+		command.rr_torque = output
 
-			route_x.append(temp_x)
-			route_y.append(temp_y)
+		Path = np.array(self.planPath)
+		length = Path.shape[0]
+		delta_x = Path[:, 0] - self.x + self.x0
+		delta_y = Path[:, 1] - self.y + self.y0
+		dist_list = (delta_x*delta_x + delta_y*delta_y)**0.5
+		index = np.argmin(dist_list)
 
-	if route_x == []:
-		route_x.append(shape[0][0])
-		route_y.append(shape[0][1])
+		Hc, Hp, Ts_MPC = 5, 10, 1.0/20.0
+		mpc = MPC(Hc=Hc, Hp=Hp, Ts_MPC=Ts_MPC)
+		cur_state = np.array([self.x, self.y, self.yaw])
 
-	direction_list = []
-	for index in range(1, len(route_x)):
-		x = route_x[index] - route_x[index-1]
-		y = route_y[index] - route_y[index-1]
+		true_path = np.transpose(np.array(self.planPath))
 
-		direction = np.arctan2(y, x)
-		direction_list.append(direction)
+		if index+Hc+Hp < length:
+			end = index+Hc+Hp
+			true_path = true_path[index:end, :]
+		else:
+			self.ref_v = 0
+			true_path = true_path[index:, :]
+		# last_point = new_path[-1]
+		# new_path.append(last_point)
+		# new_path.pop(0)
+		# self.planPath = new_path
+		#print(true_path)
+		true_path = np.reshape(true_path, (true_path.shape[0]*true_path.shape[1], 1))
+		true_path = [float(i) for i in list(true_path)]
 
-	direction_list.append(0)
+		curv, beta, ref_v = mpc.update(cur_state, true_path)
+		command.kappa = curv
+		command.beta = beta
+		self.ref_v = ref_v
 
-	return [route_x, route_y, direction_list]
+		self.pub.publish(command)
+		print("index: {0}, curv: {1}, beta: {2}, ref_v: {3}".format(index, curv, beta, ref_v))
+
+	def interpolate(self, shape):
+		route_x = []
+		route_y = []
+		points_per_meter = 5
+
+		for index in range(1, len(shape)):
+			dist_x = shape[index][0] - shape[index - 1][0]
+			dist_y = shape[index][1] - shape[index - 1][1]
+			len_temp = (dist_x**2 + dist_y**2)**0.5
+
+			num_points = int(len_temp * float(points_per_meter))
+			for num in range(0, num_points):
+				temp_x = shape[index - 1][0] + num * dist_x / num_points
+				temp_y = shape[index - 1][1] + num * dist_y / num_points
+
+				route_x.append(temp_x)
+				route_y.append(temp_y)
+
+		if route_x == []:
+			route_x.append(shape[0][0])
+			route_y.append(shape[0][1])
+
+		direction_list = []
+		for index in range(1, len(route_x)):
+			x = route_x[index] - route_x[index-1]
+			y = route_y[index] - route_y[index-1]
+
+			direction = np.arctan2(y, x)
+			direction_list.append(direction)
+
+		direction_list.append(0)
+
+		return [route_x, route_y, direction_list]
 
 
 if __name__ == '__main__':
-	path_name = "path3.dat"
+	path_name = "path5.dat"
 	path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
 	path_path = os.path.join(path_dir, path_name)
 	rospy.init_node('rcv_controller', anonymous=True)
@@ -255,18 +291,20 @@ if __name__ == '__main__':
 		p_v = input("track path (1) or velocity (0): ")
 		if p_v:
 			planPath = []
-			scale = 0.2
+			scale_x = 1
+			scale_y = 0.2
 			with open(path_path) as f:
 				for line in f:
 					cur_data = [float(x) for x in line.split(',')]
-					cur_data[0] *= scale
+					cur_data[0] *= scale_x
+					cur_data[1] *= scale_y
 					planPath.append(cur_data)
-			t = Translator(planPath=interpolate(planPath))  
+			t = RCVControl(planPath=planPath)  
 		else:
 			vel = input("Input reference velocity: ")
 			kappa = input("Input reference kappa: ")
 			operations = [m_a, vel, kappa]
-			t = Translator(operations=operations)
+			t = RCVControl(operations=operations)
 	else:
 		fl_torque = input("Input the front-left wheel torque: ")
 		fr_torque = input("Input the front-right wheel torque: ")
@@ -275,7 +313,7 @@ if __name__ == '__main__':
 		kappa = input("Input the kappa: ")
 		beta = input("Input the beta: ")
 		operations = [m_a, fl_torque, fr_torque, rl_torque, rr_torque, kappa, beta]
-		t = Translator(operations=operations)
+		t = RCVControl(operations=operations)
 	
 	rospy.spin()
 

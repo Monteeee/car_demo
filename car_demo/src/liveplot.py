@@ -9,19 +9,21 @@ import math
 
 def plot_xy(msg):
 	global counter
-	path_name = "path3.dat"
+	path_name = "path5.dat"
 	path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
 	path_path = os.path.join(path_dir, path_name)
 	x0 = 3.0
 	y0 = -12.0
-	scale = 0.2
+	scale_x = 1
+	scale_y = 0.2
 
 	if counter == 0:
 		planPath = []
 		with open(path_path) as f:
 			for line in f:
 				cur_data = [float(x) for x in line.split(',')]
-				cur_data[0] *= scale
+				cur_data[0] *= scale_x
+				cur_data[1] *= scale_y
 				planPath.append(cur_data)
 		Path = np.array(interpolate(planPath))
 
@@ -39,7 +41,7 @@ def plot_xy(msg):
 
 		plt.plot(cur_x, cur_y, 'ro')
 		ax = plt.axes()
-		ax.arrow(x=cur_x, y=cur_y, dx=dx, dy=dy, width=0.04, head_length=1.5, color='k')
+		ax.arrow(x=cur_x, y=cur_y, dx=dx, dy=dy, color='k')
 		plt.draw()
 		plt.pause(1e-12)
 	
