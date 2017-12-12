@@ -90,6 +90,10 @@ class MPC:
 			zref[0,3 * i + 1] = xy_temp[1,:]
 			zref[0,3 * i + 2] = yaw_temp
 
+		# z0 = [0.0, 0.0, 0.0]
+		# z0.extend(list(zref[0, :]))
+		# zref = np.array([z0])
+
 		# Calculating curvature (kappa) and crabbing (beta) reference
 		for i in range(self.Hp + self.Hc - 1):
 			xy_crab = np.dot(np.array([[np.cos(zref[0, 3*i+2]), np.sin(zref[0, 3*i+2])], [-np.sin(zref[0, 3*i+2]), np.cos(zref[0, 3*i+2])]]), np.array([[zref[0, 3*i+3] - zref[0, 3*i]], [zref[0, 3*i+4] - zref[0, 3*i+1]]]))
@@ -99,10 +103,11 @@ class MPC:
 		for j in range(self.Hp + self.Hc - 1):
 			curv_beta_ref[0,2*j] = 0.5 * hypot((zref[0,3*j]-zref[0,3*j+3]), (zref[0,3*j+1] - zref[0,3*j+4])) / np.sin(0.5*(zref[0,3*j+5] - zref[0,3*j+2]))
 			curv_beta_ref[0,2*j] = 1.0/curv_beta_ref[0,2*j] if curv_beta_ref[0,2*j] != 0.0 else 10.0
-			curv_beta_ref[0,2*j+1] = math.atan2(traj_crab[j+1,0] - traj_crab[j,0], traj_crab[j+1, 1] - traj_crab[j,1])
+			if abs(traj_crab[j+1,0] - traj_crab[j,0]) < 0.0001:
+				curv_beta_ref[0,2*j+1] = 0.0
+			else:
+				curv_beta_ref[0,2*j+1] = math.atan2(traj_crab[j+1,0] - traj_crab[j,0], traj_crab[j+1, 1] - traj_crab[j,1])
 
-		print('curv_beta_ref: ')
-		print(curv_beta_ref)
 		# Calculating velocity reference vref
 		for i in range(self.Hp + self.Hc - 1):
 			vref[0,i] = hypot((zref[0,3*i+3] - zref[0,3*i]), (zref[0,3*i+4] - zref[0,3*i+1])) / self.Ts_MPC

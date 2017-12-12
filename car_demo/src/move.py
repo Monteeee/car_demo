@@ -42,9 +42,10 @@ class RCVControl:
 	"""Main file for controlling RCV
 	"""
 
-	def __init__(self, operations=None, planPath=None):
+	def __init__(self, operations=None, ctrl_spec=None, planPath=None, ref_v=0.0):
 		self.operations = operations
-		self.planPath = self.interpolate(shape=planPath)
+		self.ctrl_spec = ctrl_spec
+		self.planPath = planPath
 		self.linear_v = 0
 		self.index = 0
 		self.x0 = 3.0
@@ -54,7 +55,7 @@ class RCVControl:
 		self.yaw = 0
 		self.dist = 0
 		self.pre_dist = 0
-		self.ref_v = 0.0
+		self.ref_v = ref_v
 		#self.pub = rospy.Publisher('rcv_control_cmd', Control, queue_size=1)
 		self.pub = rospy.Publisher('rcv_control_cmd', control_command, queue_size=1)
 		#self.vel_sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
@@ -81,15 +82,17 @@ class RCVControl:
 	def timer_callback(self, event):
 		if self.last_published_time < rospy.get_rostime() + rospy.Duration(1.0/20):
 			if self.operations is None:
-				self.pathControlMPC()
+				if self.ctrl_spec:
+					self.pathControlMPC()
+				else:
+					self.pathControlPP()
 			else:
 				self.move_new()
 
 	# interface takes throttle, brake, steer as input
+	# not used
 	def move(self):
 		command = Control()
-		#self.sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
-		#rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
 		
 		rcv_v = float(self.linear_v)
 		ref_v = float(self.operations[1])	
@@ -122,19 +125,15 @@ class RCVControl:
 	# interface takes torques, kappa, beta as input
 	def move_new(self):
 		command = control_command()
-		#self.sub = rospy.Subscriber('rosout_agg', Log, self.velcallback)
-		#rospy.Subscriber('/base_pose_ground_truth', Odometry, self.statecallback)
 
 		rcv_v = float(self.linear_v)
-		ref_v = float(self.operations[2])
 		
 		if self.operations[0]:
-			if abs(rcv_v - ref_v)/ref_v < thre:
-				command.kappa = self.operations[3]
+			if abs(rcv_v - self.ref_v)/self.ref_v < thre:
+				command.kappa = self.operations[1]
 			else:
-				ref_v = self.operations[1]
-				pid = PID(P=1.2, I=10, D=0.1)
-				pid.SetPoint = float(ref_v)
+				pid = PID(P=1.2, I=1, D=0.1)
+				pid.SetPoint = float(self.ref_v)
 				pid.setSampleTime = rospy.Duration(1.0/20)
 				pid.update(float(rcv_v))
 
@@ -153,7 +152,7 @@ class RCVControl:
 
 		self.pub.publish(command)
 
-	def pathControl(self):
+	def pathControlPP(self):
 		command = control_command()
 		rcv_v = float(self.linear_v)
 
@@ -173,7 +172,8 @@ class RCVControl:
 		command.rl_torque = output
 		command.rr_torque = output
 
-		purePursuit = PurePursuit(lookahead=20, planPath=self.planPath)
+		inte_path = self.interpolate(shape=self.planPath)
+		purePursuit = PurePursuit(lookahead=20, planPath=inte_path)
 		command.kappa = purePursuit.update([self.x - self.x0, self.y - self.y0, self.yaw])
 		command.beta = 0		#TODO: how to set beta in pure pursuit
 
@@ -208,30 +208,25 @@ class RCVControl:
 		command.rl_torque = output
 		command.rr_torque = output
 
-		Path = np.array(self.planPath)
+		inte_path = self.interpolate(shape=self.planPath)
+		Path = np.transpose(np.array(inte_path))
 		length = Path.shape[0]
 		delta_x = Path[:, 0] - self.x + self.x0
 		delta_y = Path[:, 1] - self.y + self.y0
 		dist_list = (delta_x*delta_x + delta_y*delta_y)**0.5
 		index = np.argmin(dist_list)
 
-		Hc, Hp, Ts_MPC = 5, 10, 1.0/20.0
+		Hc, Hp, Ts_MPC = 15, 20, 1.0/20.0
 		mpc = MPC(Hc=Hc, Hp=Hp, Ts_MPC=Ts_MPC)
-		cur_state = np.array([self.x, self.y, self.yaw])
-
-		true_path = np.transpose(np.array(self.planPath))
+		cur_state = np.array([self.x - self.x0, self.y - self.y0, self.yaw])
 
 		if index+Hc+Hp < length:
 			end = index+Hc+Hp
-			true_path = true_path[index:end, :]
+			true_path = Path[index:end, :]
 		else:
 			self.ref_v = 0
-			true_path = true_path[index:, :]
-		# last_point = new_path[-1]
-		# new_path.append(last_point)
-		# new_path.pop(0)
-		# self.planPath = new_path
-		#print(true_path)
+			true_path = Path[index:, :]
+
 		true_path = np.reshape(true_path, (true_path.shape[0]*true_path.shape[1], 1))
 		true_path = [float(i) for i in list(true_path)]
 
@@ -279,7 +274,7 @@ class RCVControl:
 
 
 if __name__ == '__main__':
-	path_name = "path5.dat"
+	path_name = "path3.dat"
 	path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
 	path_path = os.path.join(path_dir, path_name)
 	rospy.init_node('rcv_controller', anonymous=True)
@@ -290,21 +285,26 @@ if __name__ == '__main__':
 	if m_a:
 		p_v = input("track path (1) or velocity (0): ")
 		if p_v:
+			ctrl_spec = input("MPC (1) or Pure Pursuit (0): ")
 			planPath = []
-			scale_x = 1
-			scale_y = 0.2
+			scale_x = 0.3
+			scale_y = 0.5
 			with open(path_path) as f:
 				for line in f:
 					cur_data = [float(x) for x in line.split(',')]
 					cur_data[0] *= scale_x
 					cur_data[1] *= scale_y
 					planPath.append(cur_data)
-			t = RCVControl(planPath=planPath)  
+			if ctrl_spec:
+				t = RCVControl(ctrl_spec=ctrl_spec, planPath=planPath)
+			else:
+				ref_v = input("Input reference velocity: ")
+				t = RCVControl(ctrl_spec=ctrl_spec, planPath=planPath, ref_v=ref_v)  
 		else:
 			vel = input("Input reference velocity: ")
 			kappa = input("Input reference kappa: ")
-			operations = [m_a, vel, kappa]
-			t = RCVControl(operations=operations)
+			operations = [m_a, kappa]
+			t = RCVControl(operations=operations, ref_v=vel)
 	else:
 		fl_torque = input("Input the front-left wheel torque: ")
 		fr_torque = input("Input the front-right wheel torque: ")

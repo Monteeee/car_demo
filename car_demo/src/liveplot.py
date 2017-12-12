@@ -9,13 +9,13 @@ import math
 
 def plot_xy(msg):
 	global counter
-	path_name = "path5.dat"
+	path_name = "path3.dat"
 	path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
 	path_path = os.path.join(path_dir, path_name)
 	x0 = 3.0
 	y0 = -12.0
-	scale_x = 1
-	scale_y = 0.2
+	scale_x = 0.3
+	scale_y = 0.5
 
 	if counter == 0:
 		planPath = []
