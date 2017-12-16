@@ -9,26 +9,27 @@ import math
 
 def plot_xy(msg):
 	global counter
-	path_name = "path3.dat"
+	path_name = "path.dat"
 	path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
 	path_path = os.path.join(path_dir, path_name)
-	x0 = 3.0
-	y0 = -12.0
-	scale_x = 0.3
-	scale_y = 0.5
+	scale_x = 1
+	scale_y = 1
 
 	if counter == 0:
+		x0 = msg.pose.pose.position.x
+		y0 = msg.pose.pose.position.y
 		planPath = []
 		with open(path_path) as f:
 			for line in f:
 				cur_data = [float(x) for x in line.split(',')]
 				cur_data[0] *= scale_x
+				cur_data[0] -= 130.0
 				cur_data[1] *= scale_y
 				planPath.append(cur_data)
 		Path = np.array(interpolate(planPath))
 
-		plt.plot(x0 + Path[0, :], y0 + Path[1, :], linewidth=2.0)
-		#plt.plot(x0 + Path[0, :], y0 + Path[1, :], 'ko')
+		#plt.plot(x0 + Path[0, :], y0 + Path[1, :], linewidth=2.0)
+		plt.plot(x0 + Path[0, :], y0 + Path[1, :], 'ko')
 		plt.draw()
 		plt.pause(1e-12)
 
@@ -53,7 +54,7 @@ def plot_xy(msg):
 def interpolate(shape):
 	route_x = []
 	route_y = []
-	points_per_meter = 5
+	points_per_meter = 15
 
 	for index in range(1, len(shape)):
 		dist_x = shape[index][0] - shape[index - 1][0]
@@ -83,6 +84,7 @@ def interpolate(shape):
 	direction_list.append(0)
 
 	return [route_x, route_y, direction_list]
+
 
 if __name__ == '__main__':
 	counter = 0

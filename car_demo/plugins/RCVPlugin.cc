@@ -1294,6 +1294,7 @@ void RCVPlugin::Update()
 
   brakePercent = ignition::math::clamp(brakePercent, 0.0, 1.0);
   brakePercent = 0;
+
   dPtr->flWheelJoint->SetParam("friction", 0,
       dPtr->flJointFriction + brakePercent * dPtr->frontBrakeTorque);
   dPtr->frWheelJoint->SetParam("friction", 0,
@@ -1308,6 +1309,10 @@ void RCVPlugin::Update()
   this->dataPtr->blWheelJoint->SetForce(0, blGasTorque);
   this->dataPtr->brWheelJoint->SetForce(0, brGasTorque);
 
+  // this->dataPtr->flWheelJoint->SetForce(0, 10);
+  // this->dataPtr->frWheelJoint->SetForce(0, 10);
+  // this->dataPtr->blWheelJoint->SetForce(0, 10);
+  // this->dataPtr->brWheelJoint->SetForce(0, 10);
 
   ///@todo it might be cool to output some data, e.g. current
   /// speed, gear etc (look at lines 1249-1300 in PriusHybridPlugin)

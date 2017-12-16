@@ -1169,6 +1169,8 @@ void PriusHybridPlugin::Update()
         -creepPercent - this->dataPtr->gasPedalPercent);
   }
 
+  //ROS_INFO_STREAM_NAMED("blJointFriction", "" << dPtr->frontBrakeTorque);
+
   brakePercent = ignition::math::clamp(brakePercent, 0.0, 1.0);
   dPtr->flWheelJoint->SetParam("friction", 0,
       dPtr->flJointFriction + brakePercent * dPtr->frontBrakeTorque);

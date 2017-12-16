@@ -6,6 +6,7 @@
 import numpy as np
 import math
 
+
 class PurePursuit:
 
 	"""MPC Controller
