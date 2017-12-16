@@ -173,21 +173,22 @@ class RCVControl:
 		mpc = MPC(Hc=Hc, Hp=Hp, Ts_MPC=Ts_MPC)
 		cur_state = np.array([self.x - self.x0, self.y - self.y0, self.yaw])
 
-		if index+Hc+Hp < length:
-			end = index+Hc+Hp
-			true_path = Path[index:end, :]
-		else:
-			self.ref_v = 0
-			true_path = Path[index:, :]
+		# if index+Hc+Hp < length:
+		# 	end = index+Hc+Hp
+		# 	true_path = Path[index:end, :]
+		# else:
+		# 	self.ref_v = 0
+		# 	true_path = Path[index:, :]
 
-		true_path = np.reshape(true_path, (true_path.shape[0]*true_path.shape[1], 1))
-		true_path = [float(i) for i in list(true_path)]
-		#if self.counter < 2:
-		#true_path = np.reshape(Path, (Path.shape[0]*Path.shape[1], 1))
-		#true_path = [float(i) for i in list(true_path)]
-		#else:
-			#true_path = pathGen(Path[index:, :], self.vref)
-			#print(true_path)
+		# true_path = np.reshape(true_path, (true_path.shape[0]*true_path.shape[1], 1))
+		# true_path = [float(i) for i in list(true_path)]
+		
+		if self.counter < 2:
+			true_path = np.reshape(Path, (Path.shape[0]*Path.shape[1], 1))
+			true_path = [float(i) for i in list(true_path)]
+		else:
+			true_path = pathGen(Path[index:, :], self.vref)
+
 		curv, beta, vref = mpc.update(cur_state, true_path, self.pre_curv, self.pre_beta)
 		command.kappa = curv
 		command.beta = beta
@@ -282,7 +283,7 @@ def pathGen(path, vref):
 
 
 if __name__ == '__main__':
-	path_name = "path.dat"
+	path_name = "zigzag_short.dat"
 	path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
 	path_path = os.path.join(path_dir, path_name)
 	rospy.init_node('rcv_controller', anonymous=True)
@@ -299,7 +300,6 @@ if __name__ == '__main__':
 			for line in f:
 				cur_data = [float(x) for x in line.split(',')]
 				cur_data[0] *= scale_x
-				cur_data[0] -= 130.0
 				cur_data[1] *= scale_y
 				planPath.append(cur_data)
 		if ctrl_spec:

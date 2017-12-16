@@ -9,7 +9,7 @@ import math
 
 def plot_xy(msg):
 	global counter
-	path_name = "path.dat"
+	path_name = "zigzag_short.dat"
 	path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
 	path_path = os.path.join(path_dir, path_name)
 	scale_x = 1
@@ -23,7 +23,6 @@ def plot_xy(msg):
 			for line in f:
 				cur_data = [float(x) for x in line.split(',')]
 				cur_data[0] *= scale_x
-				cur_data[0] -= 130.0
 				cur_data[1] *= scale_y
 				planPath.append(cur_data)
 		Path = np.array(interpolate(planPath))
