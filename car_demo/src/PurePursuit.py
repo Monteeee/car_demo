@@ -15,6 +15,7 @@ class PurePursuit:
 	def __init__(self, lookahead=20, planPath=None):
 		self.lookahead = lookahead
 		self.planPath = planPath
+	
 
 	def update(self, rela_state):
 		desire = 0

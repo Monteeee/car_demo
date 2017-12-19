@@ -23,6 +23,7 @@ class MPC:
 		self.Hp = Hp
 		self.Ts_MPC = Ts_MPC
 
+
 	def update(self, z, true_path, p_curv, p_beta):
 		# Dimentions of input variables:
 		# z = (x,y,yaw)  #(1x3) 
@@ -35,7 +36,6 @@ class MPC:
 		# w_beta = 100
 		# w_curv = 1000
 
-		# print(z[2])
 		w_x = 10
 		w_y = 50
 		w_yaw = 1000
@@ -169,16 +169,18 @@ class MPC:
 		#print('xref0','xref1','yref0','yref1',zref[0,0], zref[0,3], zref[0,1], zref[0,4])
 		vref[0,self.Hp + self.Hc - 1] = vref[0,self.Hp + self.Hc - 2]
 
-		# pathx = list(true_path[:, 0])
-		# pathy = list(true_path[:, 1])	
-		# pathyaw = list(true_path[:, 2])
+		# calculate curv_beta_ref (from here)
+		pathx = list(true_path[:, 0])
+		pathy = list(true_path[:, 1])	
+		pathyaw = list(true_path[:, 2])
 
-		# pathx.insert(0, pathx[0])
-		# pathy.insert(0, pathy[0])
-		# pathyaw.insert(0, pathyaw[0])
+		pathx.insert(0, pathx[0])
+		pathy.insert(0, pathy[0])
+		pathyaw.insert(0, pathyaw[0])
 
-		# [TruePathRef, CalcPathRef, curv_beta, vref_out] = MPCLatRefCurv(np.reshape(vref, (self.Hp + self.Hc, 1)), self.Hc, self.Hp, pathx, pathy, pathyaw, self.Ts_MPC)
-		# curv_beta_new = np.reshape(curv_beta, (1, 2 * (self.Hp + self.Hc)))
+		[TruePathRef, CalcPathRef, curv_beta, vref_out] = MPCLatRefCurv(np.reshape(vref, (self.Hp + self.Hc, 1)), self.Hc, self.Hp, pathx, pathy, pathyaw, self.Ts_MPC)
+		curv_beta_new = np.reshape(curv_beta, (1, 2 * (self.Hp + self.Hc)))
+		# (end here)
 
 		z_dif = np.array([[-zref[0,0]], [-zref[0,1]], [-zref[0,2]]])
 
@@ -263,7 +265,6 @@ class MPC:
 				finalB = np.dot(Ai[i+1,:,:], midB)
 				B[np.arange(3*i+3,3*i+6,1), 2*j] = finalB[:, 0]
 				B[np.arange(3*i+3,3*i+6,1), 2*j+1] = finalB[:, 1]
-				#B[np.arange(3*i+3,3*i+6,1), np.arange(2*j,2*j+1,1)] = np.dot(Ai[i+1,:,:], B[np.arange(3*i,3*i+3,1), np.arange(2*j,2*j+2,1)])
 
 			B[np.arange(3*i+3, 3*i+6, 1), 2*i+2] = Bi[i+1, :, 0]
 			B[np.arange(3*i+3, 3*i+6, 1), 2*i+3] = Bi[i+1, :, 1]
@@ -315,14 +316,12 @@ class MPC:
 		sol = self.cvxsolve(Hess, lin, ubfl, lbfl, ubfr, lbfr, ubrl, lbrl, ubrr, lbrr, ubflRate, lbflRate, ubfrRate, lbfrRate, ubrlRate, lbrlRate, ubrrRate, lbrrRate, self.Hc)
 		res_dif = sol['x']
 		
-		curv_beta_Hc = curv_beta_ref[0, np.arange(0,2*self.Hc,1)] + res_dif
-		#print(curv_beta_Hc[0, 0:2])
+		#curv_beta_Hc = curv_beta_ref[0, np.arange(0,2*self.Hc,1)] + res_dif
+		curv_beta_Hc = curv_beta_new[0, np.arange(0,2*self.Hc,1)] + res_dif
 
 		curv_out = curv_beta_Hc[0, 0]
 		beta_out = curv_beta_Hc[0, 1]
 		v_out = vref[0,0]
-		#print(vref)
-
 
 		if (np.isnan(curv_out) or np.isnan(beta_out)):
 			beta_out = 0.0
@@ -331,8 +330,7 @@ class MPC:
 
 		prev_curv = curv_out
 		prev_beta = beta_out
-		#print('ref_curv: {2}, ref_beta: {3}, curv: {0}, beta: {1}'.format(curv_out, beta_out, curv_beta_ref[0, 0], curv_beta_ref[0, 1]))
-		#print('........s........', time.time()-start_time)
+
 		return curv_out, beta_out, vref
 
 
@@ -627,6 +625,7 @@ def MPCLatRefCurv(vref, Hc, Hp, pathx, pathy, pathyaw, Ts_MPC):
 		vref_out = np.zeros((Hc+Hp,1))
 
 	return [TruePathRef, CalcPathRef, curv_beta, vref_out]
+
 
 def lineintersect(l1,l2):
 	m1 = (l1[3] - l1[1])/(l1[2] - l1[0])

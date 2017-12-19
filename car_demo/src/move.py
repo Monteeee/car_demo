@@ -10,6 +10,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import csv
 import glob
+import ConfigParser
 
 import tf
 from rcv_msgs.msg import control_command
@@ -24,7 +25,8 @@ class RCVControl:
 	"""entry point to different control method
 	"""
 
-	def __init__(self, operations=None, ctrl_spec=None, planPath=None, ref_v=0.0):
+	def __init__(self, config=None, operations=None, ctrl_spec=None, planPath=None, ref_v=0.0):
+		self.config = config
 		self.operations = operations
 		self.ctrl_spec = ctrl_spec
 		self.planPath = planPath
@@ -34,20 +36,18 @@ class RCVControl:
 		self.x = self.x0
 		self.y = self.y0
 		self.yaw = 0
-		self.dist = 0
-		self.pre_dist = 0
 		self.ref_v = ref_v
 		self.counter = 0
-		self.vref = np.zeros((1, 60))
 		self.pre_curv = 0.0
 		self.pre_beta = 0.0
-		self.log_path = '/home/el2425/catkin_ws/src/car_demo/car_demo/src/logs/'
-		
+		self.log_path = ConfigSectionMap(config, "Log")['directory']
 		self.pub = rospy.Publisher('rcv_control_cmd', control_command, queue_size=1)
 		self.state_sub = rospy.Subscriber('/base_pose_ground_truth', Odometry, self.state_callback)
 		self.last_published_time = rospy.get_rostime()
-		self.timer = rospy.Timer(rospy.Duration(1.0/20.0), self.timer_callback)
+		self.timer = rospy.Timer(rospy.Duration(config.getfloat("RospyTimer", "duration")), self.timer_callback)
 	
+
+	# callback function for getting feedbacks from gazebo
 	def state_callback(self, data):
 		if self.counter == 0:
 			self.x0 = data.pose.pose.position.x
@@ -62,18 +62,20 @@ class RCVControl:
 		euler = tf.transformations.euler_from_quaternion(quaternion)
 		self.yaw = euler[2]
 		self.linear_v = math.sqrt(data.twist.twist.linear.x**2 + data.twist.twist.linear.y**2)
-				
+	
+
+	# callback function for calling different control methods
 	def timer_callback(self, event):
 		if self.counter == 0:
 			if self.ctrl_spec:
-				self.log_path += 'mpc_ctrl/*.csv'
+				self.log_path += ConfigSectionMap(self.config, "Log")['filempc']
 			else:
-				self.log_path += 'pp_ctrl/*.csv'
+				self.log_path += ConfigSectionMap(self.config, "Log")['filepp']
 			file_list = [int((os.path.basename(x)).replace('.csv', '')) for x in glob.glob(self.log_path)]
 			self.log_path = self.log_path.replace('*', str(max(file_list) + 1)) if len(file_list) > 0 else self.log_path.replace('*', '1')
 		self.counter += 1
 
-		if self.last_published_time < rospy.get_rostime() + rospy.Duration(1.0/20):
+		if self.last_published_time < rospy.get_rostime() + rospy.Duration(self.config.getfloat("RospyTimer", "duration")):
 			if self.operations is None:
 				if self.ctrl_spec:
 					self.pathControlMPC()
@@ -82,7 +84,8 @@ class RCVControl:
 			else:
 				self.manControl()
 
-	# interface takes torques, kappa, beta as input
+
+	# manual control - directly apply torques, kappa and beta to RCV
 	def manControl(self):
 		command = control_command()
 		
@@ -95,17 +98,21 @@ class RCVControl:
 
 		self.pub.publish(command)
 
+
+	# pure pursuit control
 	def pathControlPP(self):
 		command = control_command()
 		rcv_v = float(self.linear_v)
 
 		# pid control for velocity
-		pid = PID(P=2, I=1.2, D=0)
+		pid = PID(P=self.config.getfloat("PID", "p"), 
+			I=self.config.getfloat("PID", "i"), 
+			D=self.config.getfloat("PID", "d"))
 		pid.SetPoint = float(self.ref_v)
-		pid.setSampleTime = rospy.Duration(1.0/20)
+		pid.setSampleTime = rospy.Duration(self.config.getfloat("PID", "samplingtime"))
 		pid.update(float(rcv_v))
 
-		torque_thresh = -0.01
+		torque_thresh = self.config.getfloat("PID", "torquethresh")
 		output = pid.output
 		if pid.output < torque_thresh:
 			output = torque_thresh
@@ -115,17 +122,14 @@ class RCVControl:
 		command.rl_torque = output
 		command.rr_torque = output
 
-		inte_path = self.interpolate(shape=self.planPath)
-		purePursuit = PurePursuit(lookahead=20, planPath=inte_path)
+		# create pure pursuit and update
+		inte_path = self.interpolate(shape=self.planPath, 
+			points_per_meter=self.config.getint("Interpolate", "pointspermeter"))
+		purePursuit = PurePursuit(lookahead=self.config.getint("PurePursuit", "lookahead"), planPath=inte_path)
 		command.kappa = purePursuit.update([self.x - self.x0, self.y - self.y0, self.yaw])
 		command.beta = 0		#TODO: how to set beta in pure pursuit
 
-		# stop the car if it approaches the end point
-		# if desire == len(Path) - 1 and self.pre_dist < dist:
-		# 	self.ref_v = 0
-		# else:
-		# 	self.ref_v = 1.2
-		# self.pre_dist = dist
+		self.pub.publish(command)
 
 		# save data as a log file
 		with open(self.log_path, 'a') as newFile:
@@ -136,22 +140,24 @@ class RCVControl:
 				newFileWriter.writerow(['torque', 'kappa', 'velocity', 'x', 'y'])
 			newFileWriter.writerow([command.fl_torque, command.kappa, rcv_v, self.x, self.y])
 
-		self.pub.publish(command)
-		#print("x: {5}, y: {6}, dist1: {7} dist: {0}, desire_point: {1}, current_point {2}, kappa: {3}, velocity: {4}"
-		#	.format(dist, desire, index, command.kappa, rcv_v, self.x, self.y, dist_list[index]))
+		print("torque: {0}, kappa: {1}, velocity: {2}, x: {3}, y: {4}"
+			.format(command.fl_torque, command.kappa, rcv_v, self.x, self.y))
 
+
+	# MPC control
 	def pathControlMPC(self):
 		command = control_command()
 		rcv_v = float(self.linear_v)
-		ref_v_define = 1.3
 
 		# pid control for velocity
-		pid = PID(P=2, I=1.2, D=0)
-		pid.SetPoint = float(ref_v_define)
-		pid.setSampleTime = rospy.Duration(1.0/20)
+		pid = PID(P=self.config.getfloat("PID", "p"), 
+			I=self.config.getfloat("PID", "i"), 
+			D=self.config.getfloat("PID", "d"))
+		pid.SetPoint = float(self.ref_v)
+		pid.setSampleTime = rospy.Duration(self.config.getfloat("PID", "samplingtime"))
 		pid.update(float(rcv_v))
 
-		torque_thresh = -0.01
+		torque_thresh = self.config.getfloat("PID", "torquethresh")
 		output = pid.output
 		if pid.output < torque_thresh:
 			output = torque_thresh
@@ -161,7 +167,9 @@ class RCVControl:
 		command.rl_torque = output
 		command.rr_torque = output
 
-		inte_path = self.interpolate(shape=self.planPath)
+		# create MPC and update
+		inte_path = self.interpolate(shape=self.planPath, 
+			points_per_meter=self.config.getint("Interpolate", "pointspermeter"))
 		Path = np.transpose(np.array(inte_path))
 		length = Path.shape[0]
 		delta_x = Path[:, 0] - self.x + self.x0
@@ -169,33 +177,30 @@ class RCVControl:
 		dist_list = (delta_x*delta_x + delta_y*delta_y)**0.5
 		index = np.argmin(dist_list)
 
-		Hc, Hp, Ts_MPC = 15, 45, 1.0/20.0
+		Hc = self.config.getint("MPC", "hc")
+		Hp = self.config.getint("MPC", "hp")
+		Ts_MPC = self.config.getfloat("MPC", "samplingtime")
 		mpc = MPC(Hc=Hc, Hp=Hp, Ts_MPC=Ts_MPC)
 		cur_state = np.array([self.x - self.x0, self.y - self.y0, self.yaw])
 
-		# if index+Hc+Hp < length:
-		# 	end = index+Hc+Hp
-		# 	true_path = Path[index:end, :]
-		# else:
-		# 	self.ref_v = 0
-		# 	true_path = Path[index:, :]
-
-		# true_path = np.reshape(true_path, (true_path.shape[0]*true_path.shape[1], 1))
-		# true_path = [float(i) for i in list(true_path)]
-		
-		if self.counter < 2:
-			true_path = np.reshape(Path, (Path.shape[0]*Path.shape[1], 1))
-			true_path = [float(i) for i in list(true_path)]
+		if index+Hc+Hp < length:
+			end = index+Hc+Hp
+			true_path = Path[index:end, :]
 		else:
-			true_path = pathGen(Path[index:, :], self.vref)
+			self.ref_v = 0
+			true_path = Path[index:, :]
+
+		true_path = np.reshape(true_path, (true_path.shape[0]*true_path.shape[1], 1))
+		true_path = [float(i) for i in list(true_path)]
 
 		curv, beta, vref = mpc.update(cur_state, true_path, self.pre_curv, self.pre_beta)
 		command.kappa = curv
 		command.beta = beta
-		self.vref = vref
 		self.ref_v = vref[0, 0]
-		self.pre_curv = -curv
+		self.pre_curv = curv
 		self.pre_beta = beta
+
+		self.pub.publish(command)
 
 		# save data as a log file
 		with open(self.log_path, 'a') as newFile:
@@ -206,14 +211,14 @@ class RCVControl:
 				newFileWriter.writerow(['torque', 'kappa', 'beta', 'velocity', 'x', 'y'])
 			newFileWriter.writerow([command.fl_torque, command.kappa, command.beta, rcv_v, self.x, self.y])
 
-		self.pub.publish(command)
-		print('rcv_v: {0}'.format(rcv_v))
-		#print("index: {0}, curv: {1}, beta: {2}, ref_v: {3}".format(index, curv, beta, ref_v))
+		print("torque: {0}, kappa: {1}, beta: {2}, velocity: {3}, x: {4}, y: {5}"
+			.format(command.fl_torque, command.kappa, command.beta, rcv_v, self.x, self.y))
 
-	def interpolate(self, shape):
+
+	# interpolation of path points
+	def interpolate(self, shape, points_per_meter):
 		route_x = []
 		route_y = []
-		points_per_meter = 15
 
 		for index in range(1, len(shape)):
 			dist_x = shape[index][0] - shape[index - 1][0]
@@ -244,48 +249,32 @@ class RCVControl:
 
 		return [route_x, route_y, direction_list]
 
-def pathGen(path, vref):
-	total_distance_covered = 0
-	delta_t = 1.0/20.0
-	dist_stack, new_path = [], []
 
-	for i in range(path.shape[0]-1):
-		cur_dist = math.hypot((path[i,0] - path[i+1,0]), (path[i,1] - path[i+1,1]))
-		dist_stack.append(cur_dist)
-
-	cum_dist = list(np.cumsum(np.array(dist_stack)))
-	total_distance = cum_dist[-1]
-
-	for idx in range(vref.shape[1]): 
-		distance_covered = vref[0, idx] * delta_t
-		total_distance_covered += distance_covered
-
-		if total_distance_covered >= total_distance:
-			total_distance_covered = total_distance
-			new_path.append(path[-1,0])
-			new_path.append(path[-1,1])
-			new_path.append(path[-1,2])
-		else:
-			index = 0
-			while total_distance_covered >= cum_dist[index]:
-				index += 1
-
-			distance_left = total_distance_covered - cum_dist[index]
-			state_x = path[index,0]
-			state_y = path[index,1]
-			state_yaw = path[index,2]
-
-			new_path.append(float(state_x + distance_left * np.cos(state_yaw)))
-			new_path.append(float(state_y + distance_left * np.sin(state_yaw)))
-			new_path.append(float(state_yaw))
-
-	return new_path
+# help function to read strings from config file
+def ConfigSectionMap(config, section):
+	dict1 = {}
+	options = config.options(section)
+	for option in options:
+		try:
+			dict1[option] = config.get(section, option)
+			if dict1[option] == -1:
+				DebugPrint("skip: %s" % option)
+		except:
+			print("exception on %s!" % option)
+			dict1[option] = None
+	return dict1
 
 
 if __name__ == '__main__':
-	path_name = "zigzag_short.dat"
-	path_dir = "/home/el2425/catkin_ws/src/car_demo/car_demo/src/paths/"
+	Config = ConfigParser.ConfigParser()
+	Config.read("/home/el2425/catkin_ws/src/car_demo/car_demo/src/configs/config.ini")
+
+	path_name = ConfigSectionMap(config=Config, section="Path")['name']
+	path_dir = ConfigSectionMap(config=Config, section="Path")['directory']
+	scale_x = Config.getfloat("Path", "scalex")
+	scale_y = Config.getfloat("Path", "scaley")
 	path_path = os.path.join(path_dir, path_name)
+
 	rospy.init_node('rcv_controller', anonymous=True)
 
 	print("Let's control your RCV")
@@ -294,8 +283,6 @@ if __name__ == '__main__':
 	if m_a:
 		ctrl_spec = input("MPC (1) or Pure Pursuit (0): ")
 		planPath = []
-		scale_x = 1
-		scale_y = 1
 		with open(path_path) as f:
 			for line in f:
 				cur_data = [float(x) for x in line.split(',')]
@@ -303,10 +290,10 @@ if __name__ == '__main__':
 				cur_data[1] *= scale_y
 				planPath.append(cur_data)
 		if ctrl_spec:
-			t = RCVControl(ctrl_spec=ctrl_spec, planPath=planPath)
+			t = RCVControl(config=Config, ctrl_spec=ctrl_spec, planPath=planPath)
 		else:
 			ref_v = input("Input reference velocity: ")
-			t = RCVControl(ctrl_spec=ctrl_spec, planPath=planPath, ref_v=ref_v)  
+			t = RCVControl(config=Config, ctrl_spec=ctrl_spec, planPath=planPath, ref_v=ref_v)  
 	else:
 		fl_torque = input("Input the front-left wheel torque: ")
 		fr_torque = input("Input the front-right wheel torque: ")
@@ -315,7 +302,7 @@ if __name__ == '__main__':
 		kappa = input("Input the kappa: ")
 		beta = input("Input the beta: ")
 		operations = [m_a, fl_torque, fr_torque, rl_torque, rr_torque, kappa, beta]
-		t = RCVControl(operations=operations)
+		t = RCVControl(config=Config, operations=operations)
 	
 	rospy.spin()
 
