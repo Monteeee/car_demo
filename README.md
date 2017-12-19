@@ -38,8 +38,8 @@ To run the controller, open another terminal window and run ```rosrun car_demo m
 
 ## Configurations
 
-When started, both of the simulator and live plot will read the configuration in [config.ini](https://github.com/txzhao/car_demo/blob/master/car_demo/src/configs/config.ini). This file contains all the related parameters of the simulator, live plot and controllers. By simply changing them, different control performances could be achieved.
+When started, both of the simulator and live plot will first read the configurations in [config.ini](https://github.com/txzhao/car_demo/blob/master/car_demo/src/configs/config.ini). This file contains all the related parameters of the simulator, live plot and controllers. You can try tuning these parameters to see how they may influence the performances in simulation.
 
 ## Logs
 
-The states of RCV are stored in a .csv file in [/logs](https://github.com/txzhao/car_demo/tree/master/car_demo/src/logs). You can retrieve them and use them to further verify your controller.
+The states of RCV are stored in a .csv file in [/logs](https://github.com/txzhao/car_demo/tree/master/car_demo/src/logs). You can retrieve and use them to further verify your controller.
