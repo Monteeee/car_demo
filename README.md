@@ -30,7 +30,10 @@ The video of simulaton and real RCV control test could be found [here](https://w
 
 - Ubuntu Xenial (16.04)
 - ROS Kinetic Kame
-- Gazebo 8.0.0 
+- Gazebo 8.0.0
+- Dependencies: ros-kinetic-desktop-full, ros-kinetic-fake-localization, ros-kinetic-joy
+
+For detailed instructions of installation, please turn to this [text file](https://github.com/txzhao/car_demo/blob/master/install_instructions.txt) for help (ubuntu system).
 
 ## How to Run
 
