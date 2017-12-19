@@ -16,7 +16,7 @@ This repo also serves as the RCV simulator for the project course [EL2425 Automa
 #### [move.py](https://github.com/txzhao/car_demo/blob/master/car_demo/src/move.py)
 - Joystick control (manual) -> PI control (velocity) + pure pursuit / MPC (path follow).
 #### [liveplot.py](https://github.com/txzhao/car_demo/blob/master/car_demo/src/liveplot.py)
-- State visualization.
+- State visualization in real time.
 
 ## Video + Pictures
 
