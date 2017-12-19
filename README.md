@@ -8,6 +8,18 @@ This repo also serves as the RCV simulator for the project course [EL2425 Automa
 
 ![Rosgraph](https://github.com/txzhao/car_demo/blob/master/pic/rosgraph.png)
 
+## Changes from Previous Work
+
+#### [RCVPlugin.cc](https://github.com/txzhao/car_demo/blob/master/car_demo/plugins/RCVPlugin.cc)
+- Inner dynamics (weight, dimension etc.): Toyota car -> RCV;
+- Interface: throttle, brake, shift_gear, steer -> four-wheel torques, curvature and crabbing angle;
+
+#### [move.py](https://github.com/txzhao/car_demo/blob/master/car_demo/src/move.py)
+- Joystick control (manual) -> PI control (velocity) + pure pursuit / MPC (path follow);
+
+#### [liveplot.py](https://github.com/txzhao/car_demo/blob/master/car_demo/src/liveplot.py)
+- State visualization.
+
 ## Video + Pictures
 
 The video of simulaton and real RCV control test could be found [here](https://www.youtube.com/watch?v=nw0xhZjIuw8).
