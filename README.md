@@ -1,54 +1,43 @@
 # Demo of RCV in ROS/GAZEBO
 
-This is a simulation of a [KTH Research Concept Vehicle (RCV)](https://www.itrl.kth.se/research/itrl-labs/rcv-1.476469) in [gazebo 8](http://gazebosim.org) with sensor data being published using [ROS kinetic](http://wiki.ros.org/kinetic/Installation). The RCV's wheel torques, curvature and crabbing angle are controlled by publishing a ROS message. A ROS node allows controlling the RCV to maintain at a predefined speed or follow a path.
+This is a simulation of a [KTH Research Concept Vehicle (RCV)](https://www.itrl.kth.se/research/itrl-labs/rcv-1.476469) in [gazebo 8](http://gazebosim.org) with sensor data being published using [ROS kinetic](http://wiki.ros.org/kinetic/Installation). The RCV's four-wheel torques, curvature and crabbing angle are controlled by publishing a ROS message. A ROS node allows controlling the RCV to follow a predefined path.
 
-# Video + Pictures
+This repo also serves as the RCV simulator for the project course [EL2425 Automatic Control, Project Course](https://www.kth.se/social/course/EL2425/) at KTH. To get more information about the project and how to control the real RCV, please go to this [repo](https://github.com/txzhao/Model-Control-RCV).
+
+#### Graph of ROS nodes
+
+![Rosgraph](https://github.com/txzhao/car_demo/blob/master/pic/rosgraph.png)
+
+## Video + Pictures
 
 Video is not available yet. Will be released in two weeks.
 
 ![RCV Image](https://github.com/txzhao/car_demo/blob/master/pic/rcv.png)
 
-# Requirements
+## Requirements
 
-This demo has been tested on Ubuntu Xenial (16.04)
+- Ubuntu Xenial (16.04)
+- ROS Kinetic Kame
+- Gazebo 8.0.0 
 
-* An X server
-* [Docker](https://www.docker.com/get-docker)
-* [nvidia-docker](https://github.com/NVIDIA/nvidia-docker/wiki/Installation)
+## How to Run
 
-# Recommended
-
-* A joystick
-* A joystick driver which creates links to `/dev/input/js0` or `/dev/input/js1`
-
-# Building
-
-First clone the repo, then run the script `build_demo.bash`.
-It builds a docker image with the local source code inside.
+First clone this repo into the src folder of your catkin workspace. Then in the toplevel catkin workspace folder, run the following command in the terminal
 
 ```
-$ cd car_demo
-$ ./build_demo.bash
+$ catkin_make
+$ source devel/setup.sh
+$ roslaunch car_demo rcv_sim.launch visual:=true
 ```
 
-# Running
+Now, the simulator along with a simple live plot which records RCV's current position and predefined path should show up. If you want to disable the live plot, simply replace the last command line with ```roslaunch car_demo rcv_sim.launch```.
 
-Connect a game controller to your PC.
-Use the script `run_demo.bash` to run the demo.
+To run the controller, open another terminal window and run ```rosrun car_demo move.py```.
 
-```
-$ ./run_demo.bash
-```
-An [RVIZ](http://wiki.ros.org/rviz) window will open showing the car and sensor output.
-A gazebo window will appear showing the simulation.
-Either use the controller to drive the prius around the world, or click on the gazebo window and use the `WASD` keys to drive the car.
+## Configurations
 
-If using a Logitech F710 controller:
+When started, both of the simulator and live plot will read the configuration in [config.ini](https://github.com/txzhao/car_demo/blob/master/car_demo/src/configs/config.ini). This file contains all the related parameters of the simulator, live plot and controllers. By simply changing them, different control performances could be achieved.
 
-* Make sure the MODE status light is off
-* Set the swtich to XInput mode
-* The right stick controls throttle and brake
-* The left stick controls steering
-* Y puts the car into DRIVE
-* A puts the car into REVERSE
-* B puts the car into NEUTRAL
+## Logs
+
+The states of RCV are stored in a .csv file in [/logs](https://github.com/txzhao/car_demo/tree/master/car_demo/src/logs). You can retrieve them and use them to further verify your controller.

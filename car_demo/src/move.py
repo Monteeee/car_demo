@@ -275,7 +275,7 @@ if __name__ == '__main__':
 	scale_y = Config.getfloat("Path", "scaley")
 	path_path = os.path.join(path_dir, path_name)
 
-	rospy.init_node('rcv_controller', anonymous=True)
+	rospy.init_node('rcv_controller')
 
 	print("Let's control your RCV")
 	m_a = input("Choose automatic (1) or torque (0) control: ")
