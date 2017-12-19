@@ -10,7 +10,7 @@ This repo also serves as the RCV simulator for the project course [EL2425 Automa
 
 ## Video + Pictures
 
-Video is not available yet. Will be released in two weeks.
+The video of simulaton and real RCV control test could be found [here](https://www.youtube.com/watch?v=nw0xhZjIuw8).
 
 ![RCV Image](https://github.com/txzhao/car_demo/blob/master/pic/rcv.png)
 
