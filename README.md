@@ -4,6 +4,12 @@ This is a simulation of a [KTH Research Concept Vehicle (RCV)](https://www.itrl.
 
 This repo also serves as the RCV simulator for the project course [EL2425 Automatic Control, Project Course](https://www.kth.se/social/course/EL2425/) at KTH. To get more information about the project and how to control the real RCV, please go to this [repo](https://github.com/txzhao/Model-Control-RCV).
 
+#### Detailed Origins
+
+- The skeleton is a modified version of [osrf/car_demo](https://github.com/osrf/car_demo) and [ecward/car_demo](https://github.com/ecward/car_demo);
+- The PID controller is taken from [ivmech/ivPID](https://github.com/ivmech/ivPID);
+- The MPC controller is a rewrite of Goncalo's Matlab implementation in his [master thesis](https://kth.diva-portal.org/smash/get/diva2:1043944/FULLTEXT01.pdf).
+
 #### Graph of ROS nodes
 
 ![Rosgraph](https://github.com/txzhao/car_demo/blob/master/pic/rosgraph.png)
