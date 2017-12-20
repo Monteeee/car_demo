@@ -4,7 +4,7 @@ This is a simulation of a [KTH Research Concept Vehicle (RCV)](https://www.itrl.
 
 This repo also serves as the RCV simulator for the project course [EL2425 Automatic Control, Project Course](https://www.kth.se/social/course/EL2425/) at KTH. To get more information about the project and how to control the real RCV, please go to this [repo](https://github.com/txzhao/Model-Control-RCV).
 
-#### Detailed Origins
+#### Detailed origins
 
 - The skeleton is a modified version of [osrf/car_demo](https://github.com/osrf/car_demo) and [ecward/car_demo](https://github.com/ecward/car_demo);
 - The PID controller is taken from [ivmech/ivPID](https://github.com/ivmech/ivPID);
@@ -15,7 +15,11 @@ This repo also serves as the RCV simulator for the project course [EL2425 Automa
 
 ![Rosgraph](https://github.com/txzhao/car_demo/blob/master/pic/rosgraph.png)
 
-## Changes from Previous Work
+## Why this repo?
+
+[Integrated Transport Research Lab (ITRL)](https://www.itrl.kth.se/) aims to perform automatic control algorithms to the RCV and conduct experiments to test its performance. Since testing on the real RCV takes quite a lot of time and efforts, a RCV simulator is highly needed for pre-testing purpose. Given the demands, this repo modifies a similar open-source work [car_demo](https://github.com/osrf/car_demo) and partially changes the Toyata car's inner dynamics to match with that of RCV, and then performs several automatic controllers to control the car. Simple evaluation tools are also developed to improve user experience.
+
+## Changes from previous work
 
 #### [RCVPlugin.cc](https://github.com/txzhao/car_demo/blob/master/car_demo/plugins/RCVPlugin.cc)
 - Inner dynamics (weight, dimension etc.): Toyota car -> RCV;
@@ -43,7 +47,7 @@ The video of simulaton and real RCV control test could be found [here](https://w
 
 For detailed instructions of installation, please turn to this [text file](https://github.com/txzhao/car_demo/blob/master/install_instructions.txt) for help (ubuntu system).
 
-## How to Run
+## How to run
 
 First clone this repo into the src folder of your catkin workspace. Then in the toplevel catkin workspace folder, run the following command in the terminal
 
