@@ -17,7 +17,9 @@ This repo also serves as the RCV simulator for the project course [EL2425 Automa
 
 ## Why this repo?
 
-[Integrated Transport Research Lab (ITRL)](https://www.itrl.kth.se/) aims to perform automatic control algorithms to the RCV and conduct experiments to test its performance. Since testing on the real RCV takes quite a lot of time and efforts, a RCV simulator is highly needed for pre-testing purpose. Given the demands, this repo modifies a similar open-source work [car_demo](https://github.com/osrf/car_demo) and partially changes the Toyata car's inner dynamics to match with that of RCV, and then performs several automatic controllers to control the car. Simple configuration and evaluation tools are also developed to improve user experience.
+[Integrated Transport Research Lab (ITRL)](https://www.itrl.kth.se/) aims to perform automatic control algorithms to the RCV and conduct experiments to test its performance. Since testing on the real RCV takes quite a lot of time and efforts, a RCV simulator is highly needed for pre-testing purpose. 
+
+Given the demands, this repo modifies a similar open-source work [car_demo](https://github.com/osrf/car_demo) and partially changes the Toyata car's inner dynamics to match with that of RCV, and then performs several automatic controllers to control the car. Simple configuration and evaluation tools are also developed to improve user experience.
 
 ## Changes from previous work
 
