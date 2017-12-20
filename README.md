@@ -8,7 +8,8 @@ This repo also serves as the RCV simulator for the project course [EL2425 Automa
 
 - The skeleton is a modified version of [osrf/car_demo](https://github.com/osrf/car_demo) and [ecward/car_demo](https://github.com/ecward/car_demo);
 - The PID controller is taken from [ivmech/ivPID](https://github.com/ivmech/ivPID);
-- The MPC controller is a rewrite of Goncalo's Matlab implementation in his [master thesis](https://kth.diva-portal.org/smash/get/diva2:1043944/FULLTEXT01.pdf).
+- The MPC controller is a rewrite of Goncalo's Matlab implementation in his [master thesis](https://kth.diva-portal.org/smash/get/diva2:1043944/FULLTEXT01.pdf);
+- The QP solver comes from [CVXOPT](https://github.com/cvxopt/cvxopt).
 
 #### Graph of ROS nodes
 
@@ -38,6 +39,7 @@ The video of simulaton and real RCV control test could be found [here](https://w
 - ROS Kinetic Kame
 - Gazebo 8.0.0
 - Dependencies: ros-kinetic-desktop-full, ros-kinetic-fake-localization, ros-kinetic-joy
+- QP solver: CVXOPT
 
 For detailed instructions of installation, please turn to this [text file](https://github.com/txzhao/car_demo/blob/master/install_instructions.txt) for help (ubuntu system).
 
