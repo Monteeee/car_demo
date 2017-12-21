@@ -19,7 +19,7 @@ This repo also serves as the RCV simulator for the project course [EL2425 Automa
 
 [Integrated Transport Research Lab (ITRL)](https://www.itrl.kth.se/) aims to perform automatic control algorithms to the RCV and conduct experiments to test its performance. Since testing on the real RCV takes quite a lot of time and efforts, a RCV simulator is highly needed for pre-testing purpose. 
 
-Given the demands, this repo modifies a similar open-source work [car_demo](https://github.com/osrf/car_demo) and partially changes the Toyata car's inner dynamics to match with that of RCV, and then performs several automatic controllers to control the car. Simple configuration and evaluation tools are also developed to improve user experience.
+Given the demands, this repo modifies a similar open-source work [car_demo](https://github.com/osrf/car_demo) and partially changes the Toyata car's inner dynamics to match with that of RCV, and then performs several automatic controllers to control the car. Centralized configuration and evaluation tools are also developed to improve user experience.
 
 ## Changes from previous work
 
@@ -65,7 +65,7 @@ To run the controller, open another terminal window and run ```rosrun car_demo m
 
 ## Configurations
 
-When started, both of the simulator and live plot will first read the configurations in [config.ini](https://github.com/txzhao/car_demo/blob/master/car_demo/src/configs/config.ini). This file contains all the related parameters of the simulator, live plot and controllers. You can try tuning these parameters to see how they may influence the performances in simulation.
+When started, both of the simulator and live plot will first read the centralized configurations in [config.ini](https://github.com/txzhao/car_demo/blob/master/car_demo/src/configs/config.ini). This file contains all the related parameters of the simulator, live plot and controllers. You can try tuning these parameters to see how they may influence the performances in simulation.
 
 ## Logs
 
