@@ -70,3 +70,17 @@ When started, both of the simulator and live plot will first read the centralize
 ## Logs
 
 The states of RCV are stored in a .csv file in [/logs](https://github.com/txzhao/car_demo/tree/master/car_demo/src/logs). You can retrieve and use them to further verify your controller.
+
+## Results
+
+#### Straight Line + Pure Pursuit
+
+![straight-line](https://github.com/txzhao/car_demo/blob/master/pic/line_4x.gif)
+
+#### Zigzag + Pure Pursuit
+
+![zigzag](https://github.com/txzhao/car_demo/blob/master/pic/zigzag_3x.gif)
+
+#### Circle + Pure Pursuit
+
+![circle](https://github.com/txzhao/car_demo/blob/master/pic/circle_4x.gif)
