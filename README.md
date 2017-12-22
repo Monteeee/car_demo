@@ -37,7 +37,9 @@ The video of simulaton and real RCV control test could be found [here](https://w
 
 #### Screenshot of RCV model
 
-![RCV Image](https://github.com/txzhao/car_demo/blob/master/pic/rcv.png)
+<p align="center">
+<img src="https://github.com/txzhao/car_demo/blob/master/pic/rcv.png" width="800"/>
+</p>
 
 ## Requirements
 
