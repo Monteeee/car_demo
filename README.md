@@ -63,11 +63,11 @@ Now, the simulator along with a simple live plot which records RCV's current pos
 
 To run the controller, open another terminal window and run ```rosrun car_demo move.py```.
 
-## Configurations
+### Configurations
 
 When started, both of the simulator and live plot will first read the centralized configurations in [config.ini](https://github.com/txzhao/car_demo/blob/master/car_demo/src/configs/config.ini). This file contains all the related parameters of the simulator, live plot and controllers. You can try tuning these parameters to see how they may influence the performances in simulation.
 
-## Logs
+### Logs
 
 The states of RCV are stored in a .csv file in [/logs](https://github.com/txzhao/car_demo/tree/master/car_demo/src/logs). You can retrieve and use them to further verify your controller.
 
