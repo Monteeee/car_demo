@@ -75,12 +75,18 @@ The states of RCV are stored in a .csv file in [/logs](https://github.com/txzhao
 
 #### Straight Line + Pure Pursuit
 
-![straight-line](https://github.com/txzhao/car_demo/blob/master/pic/line_4x.gif)
+<p align="center">
+<img src="https://github.com/txzhao/car_demo/blob/master/pic/line_4x.gif" width="800"/>
+</p>
 
 #### Zigzag + Pure Pursuit
 
-![zigzag](https://github.com/txzhao/car_demo/blob/master/pic/zigzag_3x.gif)
+<p align="center">
+<img src="https://github.com/txzhao/car_demo/blob/master/pic/zigzag_3x.gif" width="800"/>
+</p>
 
 #### Circle + Pure Pursuit
 
-![circle](https://github.com/txzhao/car_demo/blob/master/pic/circle_4x.gif)
+<p align="center">
+<img src="https://github.com/txzhao/car_demo/blob/master/pic/circle_4x.gif" width="800"/>
+</p>
