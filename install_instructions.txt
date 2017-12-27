@@ -29,4 +29,4 @@ Check you installation of gazebo:
 
 $ gazebo
 
-It shoud say version 8.1
+It should say version 8.1 or a newer version.
