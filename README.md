@@ -49,7 +49,7 @@ The video of simulaton and real RCV control test could be found [here](https://w
 - Dependencies: ros-kinetic-desktop-full, ros-kinetic-fake-localization, ros-kinetic-joy
 - QP solver: CVXOPT
 
-For detailed instructions of installation, please turn to this [text file](https://github.com/txzhao/car_demo/blob/master/install_instructions.txt) for help (ubuntu system).
+For detailed instructions of installation, please turn to this [file](https://github.com/txzhao/car_demo/blob/master/install_instructions.md) for help (ubuntu system).
 
 ## How to run
 
