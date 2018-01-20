@@ -1,6 +1,6 @@
 # Demo of RCV in ROS/GAZEBO
 
-This is a simulation of a [KTH Research Concept Vehicle (RCV)](https://www.itrl.kth.se/research/itrl-labs/rcv-1.476469) in [gazebo 8](http://gazebosim.org) with sensor data being published using [ROS kinetic](http://wiki.ros.org/kinetic/Installation). The RCV's four-wheel torques, curvature and crabbing angle are controlled by publishing a ROS message. A ROS node allows controlling the RCV to follow a predefined path.
+This is a simulation of a [KTH Research Concept Vehicle (RCV)](https://www.itrl.kth.se/research/projects/kth-rcv/rcv-1.476469) in [gazebo 8](http://gazebosim.org) with sensor data being published using [ROS kinetic](http://wiki.ros.org/kinetic/Installation). The RCV's four-wheel torques, curvature and crabbing angle are controlled by publishing a ROS message. A ROS node allows controlling the RCV to follow a predefined path.
 
 This repo also serves as the RCV simulator for the project course [EL2425 Automatic Control, Project Course](https://www.kth.se/social/course/EL2425/) at KTH. To get more information about the project and how to control the real RCV, please go to this [repo](https://github.com/txzhao/Model-Control-RCV).
 
