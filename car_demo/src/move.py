@@ -48,6 +48,7 @@ class RCVControl:
 	
 
 	# callback function for getting feedbacks from gazebo
+	# read in Odometry info of RCV from simulator
 	def state_callback(self, data):
 		if self.counter == 0:
 			self.x0 = data.pose.pose.position.x
