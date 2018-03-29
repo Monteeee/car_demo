@@ -26,14 +26,29 @@
   <kp>1e8</kp>
 </gazebo>
 
+<!-- %%% some physic information for who is not familiar with URDF %%% -->
+<!-- %%% 
+     length, posistion -> meters;  rpy(roll, pitch, yaw), angle limits -> radius;	
+     rgba(for color) -> [0, 1];    mass -> kilograms;    inertia matrix -> kg*m^2;
+     mu (friction) -> 1;   kp (stiffness) -> N/m
+     kd (dampening); 
+       (friction and damping for both contact and joint, stiffness for contact)
+     %%% -->
 
+
+
+  <!-- ##### start of chassis link ##### -->
   <!-- Base link is the actual robot body, on the ground-->
-  <link name="base_link">
+<link name="base_link">
     <inertial>
       <mass value="1"/>
       <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
     </inertial>
-  </link>
+</link>
+  <!-- ##### end of base link ##### -->
+
+
+  <!-- ##### joint between base and chassis ##### -->
   <joint name="base_link_connection" type="fixed">
     <parent link="base_link"/>
     <child link="chassis"/>
@@ -41,7 +56,11 @@
     <axis xyz="1 0 0"/>
   </joint>
 
+
+<!-- ##### start of chassis link ##### -->
 <link name="chassis">
+  
+  <!-- $$$ visual of chassis link $$$ -->
   <visual>
     <origin xyz="0 0 0" rpy="0 0 1.57"/>
     <geometry>
@@ -50,6 +69,7 @@
     </geometry>
   </visual>
 
+  <!-- $$$ all the collisions under chassis link $$$ -->
   <!-- TODO adjust the size of collision boxes -->
   <collision name="chassis">
     <origin xyz="0.0 0.05 0.625" rpy="0 0 0"/>
@@ -72,7 +92,6 @@
     </geometry>
   </collision>
 
-
   <collision name="top_front">
     <origin xyz="0.0 0.161236 1.386042" rpy="0.135030 0 0"/>
     <geometry>
@@ -94,14 +113,20 @@
     </geometry>
   </collision>
 
-<!-- TODO adjust the mass -->
+  <!-- $$$ physics of chassis link $$$ -->
+  <!-- TODO adjust the mass -->
   <inertial>
     <mass value="400.0"/>
     <origin xyz="0 0 0.48" rpy="0 0 1.5708"/>
     <inertia ixx="2581.13354740" ixy="0.0" ixz="0.0" iyy="591.30846112" iyz="0.0" izz="2681.95008628"/>
   </inertial>
+
 </link>
 
+<!-- ##### end of chassis link ##### -->
+
+
+<!-- ##### start of fl, fr, rl, rr link ##### -->
 <link name="fl_axle">
   <inertial>
     <mass value="1"/>
@@ -133,7 +158,10 @@
     <inertia ixx="0.004" ixy="0.0" ixz="0.0" iyy="0.004" iyz="0.0" izz="0.004"/>
   </inertial>
 </link>
+<!-- ##### end of fl, fr, rl, rr axle link ##### -->
 
+
+<!-- ##### start of fl wheel link ##### -->
 <link name="front_left_wheel">
   <inertial>
     <mass value="25"/>
@@ -145,7 +173,8 @@
       <sphere radius="0.31265"/>
     </geometry>
 
-<!--you can't set friction in URDF -->
+<!--you can't set friction in URDF --> 
+<!-- %%% you can set contact and joint friction %%% -->
     <surface>
       <friction>
         <torsional>
@@ -165,7 +194,10 @@
     </geometry>
   </visual>
 </link>
+<!-- ##### end of fl wheel link ##### -->
 
+
+<!-- ##### start of fr wheel link ##### -->
 <link name="front_right_wheel">
   <inertial>
     <mass value="25"/>
@@ -184,7 +216,10 @@
     </geometry>
   </visual>
 </link>
+<!-- ##### end of fr wheel link ##### -->
 
+
+<!-- ##### start of rl wheel link ##### -->
 <link name="rear_left_wheel">
   <inertial>
     <mass value="25"/>
@@ -203,7 +238,10 @@
     </geometry>
   </visual>
 </link>
+<!-- ##### end of rl wheel link ##### -->
 
+
+<!-- ##### start of rr wheel link ##### -->
 <link name="rear_right_wheel">
   <inertial>
     <mass value="25"/>
@@ -222,7 +260,10 @@
     </geometry>
   </visual>
 </link>
+<!-- ##### end of rr wheel link ##### -->
 
+
+<!-- ##### start of steering(?) wheel link ##### -->
 <link name="steering_wheel">
   <inertial>
     <mass value="1.0"/>
@@ -235,8 +276,12 @@
     </geometry>
   </visual>
 </link>
+<!-- ##### end of steering wheel link ##### -->
 
+
+<!-- ##### start of 4 steer joints ##### -->
 <!-- TODO adjust positions of these joints -->
+
 <joint name="steering_joint" type="continuous">
   <origin xyz="0.357734 -0.627868 0.988243" rpy="-1.302101 0 0"/>
   <parent link="chassis"/>
@@ -277,8 +322,10 @@
   <axis xyz="0 0 1"/>
   <limit lower="-0.8727" upper="0.8727" effort="10000000" velocity="1000000"/>
 </joint>
+<!-- ##### end of 4 steer joints ##### -->
   
-  
+
+<!-- ##### start of 4 wheel joints ##### -->
 <joint name="front_left_wheel_joint" type="continuous">
   <parent link="fl_axle"/>
   <child link="front_left_wheel"/>
@@ -303,6 +350,8 @@
   <origin xyz="0 0 0" rpy="0 0 0"/>
   <axis xyz="1 0 0"/>
 </joint>
+<!-- ##### end of 4 wheel joints ##### -->
+
 
 
   <!-- Sensors -->
